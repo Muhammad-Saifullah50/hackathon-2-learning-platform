@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/part-of: postgresql
+    app.kubernetes.io/managed-by: postgres-k8s-setup

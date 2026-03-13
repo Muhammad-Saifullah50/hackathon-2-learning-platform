@@ -1,0 +1,264 @@
+# Kafka with Zookeeper Mode — Traditional deployment
+# Deploys: Zookeeper ensemble (3 nodes) + Kafka broker StatefulSet
+# Placeholders: {{NAMESPACE}}, {{BROKERS}}, {{STORAGE}}
+---
+# ── Zookeeper Headless Service ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+  namespace: {{NAMESPACE}}
+  labels:
+    app: zookeeper
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+    - name: follower
+      port: 2888
+      targetPort: 2888
+    - name: election
+      port: 3888
+      targetPort: 3888
+---
+# ── Zookeeper Client Service ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: {{NAMESPACE}}
+  labels:
+    app: zookeeper
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  type: ClusterIP
+  selector:
+    app: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+# ── Zookeeper StatefulSet ──
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: {{NAMESPACE}}
+  labels:
+    app: zookeeper
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  serviceName: zookeeper-headless
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+        app.kubernetes.io/managed-by: kafka-k8s-setup
+    spec:
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: zookeeper
+          image: bitnami/zookeeper:3.9
+          ports:
+            - name: client
+              containerPort: 2181
+            - name: follower
+              containerPort: 2888
+            - name: election
+              containerPort: 3888
+          env:
+            - name: ALLOW_ANONYMOUS_LOGIN
+              value: "yes"
+            - name: ZOO_SERVER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ZOO_SERVERS
+              value: >-
+                zookeeper-0.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2888:3888,
+                zookeeper-1.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2888:3888,
+                zookeeper-2.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2888:3888
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/zookeeper
+          readinessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 20
+            periodSeconds: 15
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: zookeeper
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: kafka-storage
+        resources:
+          requests:
+            storage: 2Gi
+---
+# ── Kafka Headless Service ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: {{NAMESPACE}}
+  labels:
+    app: kafka
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: kafka
+  ports:
+    - name: plaintext
+      port: 9092
+      targetPort: 9092
+---
+# ── Kafka Client Service ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: {{NAMESPACE}}
+  labels:
+    app: kafka
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  type: ClusterIP
+  selector:
+    app: kafka
+  ports:
+    - name: plaintext
+      port: 9092
+      targetPort: 9092
+---
+# ── Kafka Broker StatefulSet (Zookeeper mode) ──
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: {{NAMESPACE}}
+  labels:
+    app: kafka
+    app.kubernetes.io/managed-by: kafka-k8s-setup
+spec:
+  serviceName: kafka-headless
+  replicas: {{BROKERS}}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+        app.kubernetes.io/managed-by: kafka-k8s-setup
+    spec:
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: kafka
+          image: bitnami/kafka:3.8
+          ports:
+            - name: plaintext
+              containerPort: 9092
+          env:
+            - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+              value: "zookeeper-0.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2181,zookeeper-1.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2181,zookeeper-2.zookeeper-headless.{{NAMESPACE}}.svc.cluster.local:2181"
+            - name: KAFKA_CFG_LISTENERS
+              value: "PLAINTEXT://:9092"
+            - name: KAFKA_CFG_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://$(MY_POD_NAME).kafka-headless.{{NAMESPACE}}.svc.cluster.local:9092"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_CFG_LOG_DIRS
+              value: "/bitnami/kafka/data"
+            - name: KAFKA_CFG_NUM_PARTITIONS
+              value: "3"
+            - name: KAFKA_CFG_DEFAULT_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_CFG_MIN_INSYNC_REPLICAS
+              value: "1"
+            - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_CFG_LOG_RETENTION_HOURS
+              value: "168"
+            - name: KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx512m -Xms512m"
+            - name: ALLOW_PLAINTEXT_LISTENER
+              value: "yes"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app: kafka
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: kafka-storage
+        resources:
+          requests:
+            storage: {{STORAGE}}
