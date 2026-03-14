@@ -4,6 +4,99 @@ This file is generated during init for the selected agent.
 
 You are an expert AI assistant specializing in Spec-Driven Development (SDD). Your primary goal is to work with the architext to build products.
 
+## Project Context: LearnPyByAi
+
+**Product Name:** LearnFlow (LearnPyByAi)
+**Domain:** AI-powered Python tutoring platform
+**Target Users:** Students (learning Python) and Teachers (monitoring & generating exercises)
+
+### Core Value Proposition
+LearnFlow enables students to learn Python through conversational AI agents that provide personalized tutoring, code execution, quizzes, and progress tracking. Teachers can monitor class performance, receive struggle alerts, and generate custom coding exercises.
+
+### User Roles & Capabilities
+
+| Role | Key Features |
+|------|-------------|
+| **Student** | Chat with Python tutor, write & run code in sandbox, take coding quizzes, view progress dashboard |
+| **Teacher** | View class progress analytics, receive struggle alerts, generate custom coding exercises |
+
+### Python Curriculum Structure (8 Modules)
+
+1. **Basics** - Variables, Data Types, Input/Output, Operators, Type Conversion
+2. **Control Flow** - Conditionals (if/elif/else), For Loops, While Loops, Break/Continue
+3. **Data Structures** - Lists, Tuples, Dictionaries, Sets
+4. **Functions** - Defining Functions, Parameters, Return Values, Scope
+5. **OOP** - Classes & Objects, Attributes & Methods, Inheritance, Encapsulation
+6. **Files** - Reading/Writing Files, CSV Processing, JSON Handling
+7. **Errors** - Try/Except, Exception Types, Custom Exceptions, Debugging
+8. **Libraries** - Installing Packages, Working with APIs, Virtual Environments
+
+### Multi-Agent Architecture
+
+The platform uses specialized AI agents for different tutoring aspects:
+
+| Agent | Responsibility |
+|-------|---------------|
+| **Triage Agent** | Routes student queries to appropriate specialist agents (e.g., "explain" → Concepts, "error" → Debug) |
+| **Concepts Agent** | Explains Python concepts with examples, adapts explanations to student level |
+| **Code Review Agent** | Analyzes code for correctness, PEP 8 style compliance, efficiency, readability |
+| **Debug Agent** | Parses error messages, identifies root causes, provides progressive hints before full solutions |
+| **Exercise Agent** | Generates coding challenges and provides auto-grading |
+| **Progress Agent** | Tracks mastery scores across topics and provides progress summaries |
+
+### Business Logic & Rules
+
+**Mastery Calculation Formula:**
+- Exercise completion: 40%
+- Quiz scores: 30%
+- Code quality ratings: 20%
+- Consistency (streak): 10%
+
+**Mastery Levels:**
+- 0-40%: Beginner (Red)
+- 41-70%: Learning (Yellow)
+- 71-90%: Proficient (Green)
+- 91-100%: Mastered (Blue)
+
+**Struggle Detection Triggers:**
+- Same error type occurs 3+ times
+- Student stuck on exercise > 10 minutes
+- Quiz score < 50%
+- Student explicitly says "I don't understand" or "I'm stuck"
+- 5+ failed code executions in a row
+
+**Code Execution Sandbox Constraints:**
+- Timeout: 5 seconds
+- Memory limit: 50MB
+- No file system access (except temp directory)
+- No network access
+- Allowed imports: Python standard library only (MVP scope)
+
+### Key User Flows
+
+**Student Learning Flow:**
+1. Student logs in → Dashboard shows current module progress
+2. Student asks concept question → Triage routes to Concepts Agent
+3. Agent explains with code examples and visualizations
+4. Student writes code in Monaco editor → Executes in sandbox
+5. Agent offers quiz → Student completes → Mastery score updates
+6. If struggle detected → Alert sent to teacher
+
+**Teacher Intervention Flow:**
+1. Teacher receives struggle alert for specific student
+2. Teacher views student's code attempts and error patterns
+3. Teacher requests: "Create easy exercises on [topic]"
+4. Exercise Agent generates targeted exercises
+5. Teacher assigns exercises with one click
+6. Student receives notification and completes exercises
+
+### Technical Constraints (MVP)
+- Code sandbox: standard library imports only
+- Execution limits: 5s timeout, 50MB memory
+- No external API calls from student code
+- Monaco editor for code input
+- Real-time struggle detection and alerting
+
 ## Task context
 
 **Your Surface:** You operate on a project level, providing guidance to users and executing development tasks via a defined set of tools.
