@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LearnFlow JWT Claims Schema",
+  "description": "JWT claims schema for Kong API Gateway validation and downstream service authorization",
+  "type": "object",
+  "required": [
+    "sub",
+    "role",
+    "email",
+    "iat",
+    "exp"
+  ],
+  "properties": {
+    "sub": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Subject - User ID (UUID format)",
+      "example": "550e8400-e29b-41d4-a716-446655440000"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "student",
+        "teacher",
+        "admin"
+      ],
+      "description": "User role for role-based access control",
+      "example": "student"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "User email address",
+      "example": "user@example.com"
+    },
+    "iat": {
+      "type": "integer",
+      "description": "Issued At - Unix timestamp when token was issued",
+      "example": 1710410157
+    },
+    "exp": {
+      "type": "integer",
+      "description": "Expiration Time - Unix timestamp when token expires (15 minutes after iat)",
+      "example": 1710411057
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "sub": "550e8400-e29b-41d4-a716-446655440000",
+      "role": "student",
+      "email": "student@example.com",
+      "iat": 1710410157,
+      "exp": 1710411057
+    },
+    {
+      "sub": "660e8400-e29b-41d4-a716-446655440001",
+      "role": "teacher",
+      "email": "teacher@example.com",
+      "iat": 1710410157,
+      "exp": 1710411057
+    },
+    {
+      "sub": "770e8400-e29b-41d4-a716-446655440002",
+      "role": "admin",
+      "email": "admin@example.com",
+      "iat": 1710410157,
+      "exp": 1710411057
+    }
+  ],
+  "notes": {
+    "algorithm": "RS256 (asymmetric)",
+    "token_lifetime": "15 minutes (900 seconds)",
+    "refresh_mechanism": "Use refresh token to obtain new access token",
+    "kong_integration": {
+      "description": "Kong JWT plugin validates signature using public key from /api/auth/public-key endpoint",
+      "validation_steps": [
+        "1. Kong validates JWT signature using RS256 public key",
+        "2. Kong checks exp claim (token not expired)",
+        "3. Kong checks iat claim (token not issued in future)",
+        "4. Kong extracts claims and passes as headers to backend services"
+      ],
+      "header_mapping": {
+        "X-User-ID": "sub",
+        "X-User-Role": "role",
+        "X-User-Email": "email"
+      }
+    },
+    "security_considerations": [
+      "Access tokens are short-lived (15 minutes) to limit exposure window",
+      "Refresh tokens are long-lived (7 days) but stored as hashes in database",
+      "Token rotation on refresh prevents replay attacks",
+      "RS256 enables distributed validation without sharing signing secret",
+      "Kong validates tokens at gateway layer before reaching backend services"
+    ],
+    "role_permissions": {
+      "student": [
+        "Access own learning materials",
+        "Submit code exercises",
+        "Take quizzes",
+        "View own progress"
+      ],
+      "teacher": [
+        "All student permissions",
+        "View class progress analytics",
+        "Receive struggle alerts",
+        "Generate custom exercises",
+        "Access student data for assigned classes only"
+      ],
+      "admin": [
+        "All teacher permissions",
+        "Manage users (create, update, delete)",
+        "Access all student/teacher data",
+        "Configure platform settings",
+        "View system-wide analytics"
+      ]
+    }
+  }
+}

@@ -301,3 +301,10 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Active Technologies
+- Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic (001-auth)
+- Neon PostgreSQL (users, sessions, password_reset_tokens, email_verification_tokens, rate_limit_counters tables) (001-auth)
+
+## Recent Changes
+- 001-auth: Added Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic

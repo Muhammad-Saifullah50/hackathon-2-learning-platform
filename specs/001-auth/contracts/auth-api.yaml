@@ -1,0 +1,644 @@
+openapi: 3.1.0
+info:
+  title: LearnFlow Authentication API
+  version: 1.0.0
+  description: |
+    Authentication and authorization API for LearnFlow platform.
+    Provides user registration, login, JWT token management, password reset,
+    email verification, and role-based access control.
+  contact:
+    name: LearnFlow API Team
+    email: api@learnflow.dev
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.learnflow.dev
+    description: Production
+
+tags:
+  - name: Authentication
+    description: User registration, login, and token management
+  - name: Password Management
+    description: Password reset and change operations
+  - name: Email Verification
+    description: Email verification operations
+  - name: User Profile
+    description: Current user profile operations
+  - name: Session Management
+    description: Session and logout operations
+
+paths:
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: |
+        Creates a new user account with email, password, and role.
+        Validates email format, password strength, and checks HaveIBeenPwned.
+        Sends verification email to teacher/admin roles.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              student:
+                summary: Student registration
+                value:
+                  email: student@example.com
+                  password: SecurePass123!
+                  display_name: John Doe
+                  role: student
+              teacher:
+                summary: Teacher registration
+                value:
+                  email: teacher@example.com
+                  password: SecurePass123!
+                  display_name: Jane Smith
+                  role: teacher
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    error: Please enter a valid email address
+                weakPassword:
+                  summary: Weak password
+                  value:
+                    error: Password must be at least 8 characters with at least one non-alphanumeric character
+                breachedPassword:
+                  summary: Breached password
+                  value:
+                    error: This password has been compromised in a data breach. Please choose a different one
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: An account with this email already exists
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: |
+        Authenticates user with email and password.
+        Issues 15-minute access token and 7-day refresh token.
+        Enforces rate limiting (5 failures = 15-minute lockout).
+        Requires email verification for teacher/admin roles.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials or unverified email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCredentials:
+                  summary: Invalid email or password
+                  value:
+                    error: Invalid email or password
+                unverifiedEmail:
+                  summary: Email not verified
+                  value:
+                    error: Please verify your email before logging in
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Too many failed attempts. Try again in 15 minutes
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: |
+        Issues new access token using refresh token.
+        Rotates refresh token (invalidates old, issues new).
+        Rejects revoked or expired sessions.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Invalid or revoked refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidToken:
+                  summary: Invalid token
+                  value:
+                    error: Invalid refresh token
+                revokedSession:
+                  summary: Session revoked
+                  value:
+                    error: Session has been revoked
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Session Management
+      summary: Logout current session
+      description: |
+        Revokes current session by marking it as revoked.
+        Invalidates refresh token for this session only.
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/logout-all:
+    post:
+      tags:
+        - Session Management
+      summary: Logout all sessions
+      description: |
+        Revokes all sessions for current user.
+        Invalidates all refresh tokens across all devices.
+      operationId: logoutAllSessions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All sessions logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutAllResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/me:
+    get:
+      tags:
+        - User Profile
+      summary: Get current user profile
+      description: |
+        Returns profile information for authenticated user.
+        Includes id, email, role, display_name, email_verified_at.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/password-reset/request:
+    post:
+      tags:
+        - Password Management
+      summary: Request password reset
+      description: |
+        Sends password reset magic link to user's email.
+        Token expires in 15 minutes and is single-use.
+        Returns generic success message to prevent email enumeration.
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset email sent (or email not found, but same response)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestResponse'
+
+  /api/auth/password-reset/confirm:
+    post:
+      tags:
+        - Password Management
+      summary: Confirm password reset
+      description: |
+        Resets password using magic link token.
+        Validates token, updates password, invalidates token.
+      operationId: confirmPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirmResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: This reset link has expired or been used. Please request a new one
+
+  /api/auth/email-verification/send:
+    post:
+      tags:
+        - Email Verification
+      summary: Send verification email
+      description: |
+        Sends email verification link to user's email.
+        Token expires in 24 hours and is single-use.
+        Can be called by authenticated user to resend verification.
+      operationId: sendVerificationEmail
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailVerificationSendResponse'
+        '400':
+          description: Email already verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Email is already verified
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/email-verification/verify:
+    post:
+      tags:
+        - Email Verification
+      summary: Verify email
+      description: |
+        Verifies email using verification link token.
+        Sets email_verified_at timestamp, invalidates token.
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailVerificationResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: This verification link has expired or been used. Please request a new one
+
+  /api/auth/public-key:
+    get:
+      tags:
+        - Authentication
+      summary: Get JWT public key
+      description: |
+        Returns RS256 public key for JWT signature validation.
+        Used by Kong API Gateway to validate JWT tokens.
+      operationId: getPublicKey
+      responses:
+        '200':
+          description: Public key retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicKeyResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token (15-minute expiry)
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - display_name
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePass123!
+          description: Must be at least 8 characters with at least one non-alphanumeric character
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: John Doe
+        role:
+          type: string
+          enum: [student, teacher, admin]
+          example: student
+
+    RegisterResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        role:
+          type: string
+          enum: [student, teacher, admin]
+          example: student
+        email_verification_required:
+          type: boolean
+          example: true
+          description: True for teacher/admin, false for student
+        message:
+          type: string
+          example: Registration successful. Please check your email to verify your account.
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePass123!
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+          description: JWT access token (15-minute expiry)
+        refresh_token:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+          description: Refresh token (7-day expiry)
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 900
+          description: Access token expiry in seconds (900 = 15 minutes)
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+          description: New JWT access token (15-minute expiry)
+        refresh_token:
+          type: string
+          example: 660e8400-e29b-41d4-a716-446655440001
+          description: New refresh token (old one invalidated)
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 900
+
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Logout successful
+
+    LogoutAllResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: All sessions logged out
+        sessions_revoked:
+          type: integer
+          example: 3
+          description: Number of sessions revoked
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        role:
+          type: string
+          enum: [student, teacher, admin]
+          example: student
+        display_name:
+          type: string
+          example: John Doe
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-03-14T10:15:00Z
+          description: Null if email not verified
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    PasswordResetRequestResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: If an account exists with this email, a password reset link has been sent
+
+    PasswordResetConfirmRequest:
+      type: object
+      required:
+        - token
+        - new_password
+      properties:
+        token:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          example: NewSecurePass123!
+
+    PasswordResetConfirmResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password reset successful. You can now log in with your new password.
+
+    EmailVerificationSendResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Verification email sent
+
+    EmailVerificationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    EmailVerificationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Email verified! You can now log in.
+
+    PublicKeyResponse:
+      type: object
+      properties:
+        public_key:
+          type: string
+          example: |
+            -----BEGIN PUBLIC KEY-----
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+            -----END PUBLIC KEY-----
+        algorithm:
+          type: string
+          example: RS256
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid email or password
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - Invalid or expired token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            expiredToken:
+              summary: Token expired
+              value:
+                error: Token expired. Please refresh
+            invalidToken:
+              summary: Invalid token
+              value:
+                error: Invalid token signature
