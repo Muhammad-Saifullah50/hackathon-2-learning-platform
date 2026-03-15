@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
+    ASYNC_DATABASE_URL: str = Field(..., description="Async PostgreSQL connection string (asyncpg)")
 
     # JWT Configuration
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")

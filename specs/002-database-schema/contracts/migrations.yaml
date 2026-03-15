@@ -1,0 +1,721 @@
+# Alembic Migration Sequence
+# Feature: 002-database-schema
+# Date: 2026-03-15
+
+# This file defines the sequence of Alembic migrations for the database schema.
+# Each migration builds on the previous one and includes upgrade/downgrade paths.
+
+migrations:
+  # ============================================================================
+  # Migration 1: Core Schema Extensions
+  # ============================================================================
+
+  - revision_id: "002a_extend_users"
+    description: "Extend users table with role, preferences, and soft delete"
+    depends_on: "001z"  # Last F01 migration (to be determined from actual F01)
+    phase: 1
+    operations:
+      upgrade:
+        - add_column:
+            table: users
+            column: role
+            type: String(20)
+            nullable: false
+            server_default: "student"
+        - add_column:
+            table: users
+            column: preferences
+            type: JSONB
+            nullable: false
+            server_default: "{}"
+        - add_column:
+            table: users
+            column: deleted_at
+            type: DateTime(timezone=True)
+            nullable: true
+        - create_index:
+            name: idx_users_role
+            table: users
+            columns: [role]
+        - create_index:
+            name: idx_users_deleted_at
+            table: users
+            columns: [deleted_at]
+        - create_index:
+            name: idx_users_preferences_gin
+            table: users
+            columns: [preferences]
+            postgresql_using: gin
+        - create_check_constraint:
+            name: chk_users_role
+            table: users
+            condition: "role IN ('student', 'teacher', 'admin')"
+      downgrade:
+        - drop_constraint:
+            name: chk_users_role
+            table: users
+        - drop_index:
+            name: idx_users_preferences_gin
+            table: users
+        - drop_index:
+            name: idx_users_deleted_at
+            table: users
+        - drop_index:
+            name: idx_users_role
+            table: users
+        - drop_column:
+            table: users
+            column: deleted_at
+        - drop_column:
+            table: users
+            column: preferences
+        - drop_column:
+            table: users
+            column: role
+
+  # ============================================================================
+  # Migration 2: User Profiles and Streaks
+  # ============================================================================
+
+  - revision_id: "002b_user_profiles_streaks"
+    description: "Create user_profiles and user_streaks tables"
+    depends_on: "002a_extend_users"
+    phase: 1
+    operations:
+      upgrade:
+        - create_table:
+            name: user_profiles
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: bio
+                type: Text
+                nullable: true
+              - name: metadata
+                type: JSONB
+                nullable: false
+                server_default: "{}"
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+        - create_index:
+            name: idx_user_profiles_user_id
+            table: user_profiles
+            columns: [user_id]
+            unique: true
+        - create_index:
+            name: idx_user_profiles_metadata_gin
+            table: user_profiles
+            columns: [metadata]
+            postgresql_using: gin
+
+        - create_table:
+            name: user_streaks
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: current_streak
+                type: Integer
+                nullable: false
+                server_default: "0"
+              - name: longest_streak
+                type: Integer
+                nullable: false
+                server_default: "0"
+              - name: last_activity_date
+                type: Date
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+        - create_index:
+            name: idx_user_streaks_user_id
+            table: user_streaks
+            columns: [user_id]
+            unique: true
+        - create_index:
+            name: idx_user_streaks_last_activity
+            table: user_streaks
+            columns: [last_activity_date]
+        - create_check_constraint:
+            name: chk_user_streaks_current_streak
+            table: user_streaks
+            condition: "current_streak >= 0"
+        - create_check_constraint:
+            name: chk_user_streaks_longest_streak
+            table: user_streaks
+            condition: "longest_streak >= current_streak"
+
+      downgrade:
+        - drop_table: user_streaks
+        - drop_table: user_profiles
+
+  # ============================================================================
+  # Migration 3: Curriculum Structure
+  # ============================================================================
+
+  - revision_id: "002c_curriculum_structure"
+    description: "Create modules, lessons, exercises, and quizzes tables"
+    depends_on: "002b_user_profiles_streaks"
+    phase: 1
+    operations:
+      upgrade:
+        - create_table:
+            name: modules
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: title
+                type: String(100)
+                nullable: false
+              - name: description
+                type: Text
+                nullable: false
+              - name: order
+                type: Integer
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: deleted_at
+                type: DateTime(timezone=True)
+                nullable: true
+        - create_index:
+            name: idx_modules_order
+            table: modules
+            columns: [order]
+            unique: true
+        - create_index:
+            name: idx_modules_deleted_at
+            table: modules
+            columns: [deleted_at]
+        - create_check_constraint:
+            name: chk_modules_order
+            table: modules
+            condition: '"order" BETWEEN 1 AND 8'
+
+        - create_table:
+            name: lessons
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: module_id
+                type: Integer
+                nullable: false
+              - name: title
+                type: String(200)
+                nullable: false
+              - name: order
+                type: Integer
+                nullable: false
+              - name: content_ref
+                type: String(500)
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: deleted_at
+                type: DateTime(timezone=True)
+                nullable: true
+            foreign_keys:
+              - columns: [module_id]
+                references: modules.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_lessons_module_id
+            table: lessons
+            columns: [module_id]
+        - create_index:
+            name: idx_lessons_deleted_at
+            table: lessons
+            columns: [deleted_at]
+        - execute_sql: |
+            CREATE UNIQUE INDEX idx_lessons_module_order
+            ON lessons (module_id, "order")
+            WHERE deleted_at IS NULL
+
+        - create_table:
+            name: exercises
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: lesson_id
+                type: Integer
+                nullable: false
+              - name: title
+                type: String(200)
+                nullable: false
+              - name: order
+                type: Integer
+                nullable: false
+              - name: starter_code
+                type: Text
+                nullable: true
+              - name: content_ref
+                type: String(500)
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: deleted_at
+                type: DateTime(timezone=True)
+                nullable: true
+            foreign_keys:
+              - columns: [lesson_id]
+                references: lessons.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_exercises_lesson_id
+            table: exercises
+            columns: [lesson_id]
+        - create_index:
+            name: idx_exercises_deleted_at
+            table: exercises
+            columns: [deleted_at]
+        - execute_sql: |
+            CREATE UNIQUE INDEX idx_exercises_lesson_order
+            ON exercises (lesson_id, "order")
+            WHERE deleted_at IS NULL
+
+        - create_table:
+            name: quizzes
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: lesson_id
+                type: Integer
+                nullable: true
+              - name: title
+                type: String(200)
+                nullable: false
+              - name: questions
+                type: JSONB
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: deleted_at
+                type: DateTime(timezone=True)
+                nullable: true
+            foreign_keys:
+              - columns: [lesson_id]
+                references: lessons.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_quizzes_lesson_id
+            table: quizzes
+            columns: [lesson_id]
+        - create_index:
+            name: idx_quizzes_deleted_at
+            table: quizzes
+            columns: [deleted_at]
+
+      downgrade:
+        - drop_table: quizzes
+        - drop_table: exercises
+        - drop_table: lessons
+        - drop_table: modules
+
+  # ============================================================================
+  # Migration 4: Progress Tracking
+  # ============================================================================
+
+  - revision_id: "002d_progress_tracking"
+    description: "Create user_exercise_progress, user_quiz_attempts, and user_module_mastery tables"
+    depends_on: "002c_curriculum_structure"
+    phase: 2
+    operations:
+      upgrade:
+        - create_table:
+            name: user_exercise_progress
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: exercise_id
+                type: Integer
+                nullable: false
+              - name: status
+                type: String(20)
+                nullable: false
+                server_default: "not_started"
+              - name: score
+                type: Float
+                nullable: true
+              - name: attempts
+                type: Integer
+                nullable: false
+                server_default: "0"
+              - name: completed_at
+                type: DateTime(timezone=True)
+                nullable: true
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+              - columns: [exercise_id]
+                references: exercises.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_user_exercise_progress_user_exercise
+            table: user_exercise_progress
+            columns: [user_id, exercise_id]
+            unique: true
+        - create_index:
+            name: idx_user_exercise_progress_user_id
+            table: user_exercise_progress
+            columns: [user_id]
+        - create_index:
+            name: idx_user_exercise_progress_status
+            table: user_exercise_progress
+            columns: [status]
+        - create_check_constraint:
+            name: chk_user_exercise_progress_status
+            table: user_exercise_progress
+            condition: "status IN ('not_started', 'in_progress', 'completed')"
+        - create_check_constraint:
+            name: chk_user_exercise_progress_score
+            table: user_exercise_progress
+            condition: "score IS NULL OR (score >= 0 AND score <= 100)"
+
+        - create_table:
+            name: user_quiz_attempts
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: quiz_id
+                type: Integer
+                nullable: false
+              - name: score
+                type: Float
+                nullable: false
+              - name: answers
+                type: JSONB
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+              - columns: [quiz_id]
+                references: quizzes.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_user_quiz_attempts_user_id
+            table: user_quiz_attempts
+            columns: [user_id]
+        - create_index:
+            name: idx_user_quiz_attempts_quiz_id
+            table: user_quiz_attempts
+            columns: [quiz_id]
+        - execute_sql: |
+            CREATE INDEX idx_user_quiz_attempts_user_created
+            ON user_quiz_attempts (user_id, created_at DESC)
+        - create_check_constraint:
+            name: chk_user_quiz_attempts_score
+            table: user_quiz_attempts
+            condition: "score >= 0 AND score <= 100"
+
+        - create_table:
+            name: user_module_mastery
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: module_id
+                type: Integer
+                nullable: false
+              - name: score
+                type: Float
+                nullable: false
+                server_default: "0"
+              - name: version
+                type: Integer
+                nullable: false
+                server_default: "1"
+              - name: updated_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+              - columns: [module_id]
+                references: modules.id
+                ondelete: RESTRICT
+        - create_index:
+            name: idx_user_module_mastery_user_module
+            table: user_module_mastery
+            columns: [user_id, module_id]
+            unique: true
+        - create_index:
+            name: idx_user_module_mastery_user_id
+            table: user_module_mastery
+            columns: [user_id]
+        - create_index:
+            name: idx_user_module_mastery_updated_at
+            table: user_module_mastery
+            columns: [updated_at]
+        - create_check_constraint:
+            name: chk_user_module_mastery_score
+            table: user_module_mastery
+            condition: "score >= 0 AND score <= 100"
+
+      downgrade:
+        - drop_table: user_module_mastery
+        - drop_table: user_quiz_attempts
+        - drop_table: user_exercise_progress
+
+  # ============================================================================
+  # Migration 5: Code Submissions
+  # ============================================================================
+
+  - revision_id: "002e_code_submissions"
+    description: "Create code_submissions table"
+    depends_on: "002d_progress_tracking"
+    phase: 3
+    operations:
+      upgrade:
+        - create_table:
+            name: code_submissions
+            columns:
+              - name: id
+                type: Integer
+                primary_key: true
+                autoincrement: true
+              - name: user_id
+                type: Integer
+                nullable: false
+              - name: exercise_id
+                type: Integer
+                nullable: false
+              - name: code_text
+                type: Text
+                nullable: false
+              - name: result
+                type: JSONB
+                nullable: false
+              - name: quality_rating
+                type: Float
+                nullable: true
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+            foreign_keys:
+              - columns: [user_id]
+                references: users.id
+                ondelete: CASCADE
+              - columns: [exercise_id]
+                references: exercises.id
+                ondelete: RESTRICT
+        - execute_sql: |
+            CREATE INDEX idx_code_submissions_user_exercise_created
+            ON code_submissions (user_id, exercise_id, created_at DESC)
+        - create_index:
+            name: idx_code_submissions_user_id
+            table: code_submissions
+            columns: [user_id]
+        - create_index:
+            name: idx_code_submissions_created_at
+            table: code_submissions
+            columns: [created_at]
+        - create_check_constraint:
+            name: chk_code_submissions_quality_rating
+            table: code_submissions
+            condition: "quality_rating IS NULL OR (quality_rating >= 0 AND quality_rating <= 100)"
+
+      downgrade:
+        - drop_table: code_submissions
+
+  # ============================================================================
+  # Migration 6: LLM Cache
+  # ============================================================================
+
+  - revision_id: "002f_llm_cache"
+    description: "Create llm_cache table"
+    depends_on: "002e_code_submissions"
+    phase: 4
+    operations:
+      upgrade:
+        - create_table:
+            name: llm_cache
+            columns:
+              - name: cache_key_hash
+                type: String(64)
+                primary_key: true
+              - name: prompt_text
+                type: Text
+                nullable: false
+              - name: response_text
+                type: Text
+                nullable: false
+              - name: model
+                type: String(100)
+                nullable: false
+              - name: token_count
+                type: Integer
+                nullable: false
+              - name: created_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: last_accessed_at
+                type: DateTime(timezone=True)
+                nullable: false
+                server_default: func.now()
+              - name: expires_at
+                type: DateTime(timezone=True)
+                nullable: true
+        - create_index:
+            name: idx_llm_cache_last_accessed
+            table: llm_cache
+            columns: [last_accessed_at]
+        - create_index:
+            name: idx_llm_cache_expires_at
+            table: llm_cache
+            columns: [expires_at]
+        - create_check_constraint:
+            name: chk_llm_cache_token_count
+            table: llm_cache
+            condition: "token_count > 0"
+
+      downgrade:
+        - drop_table: llm_cache
+
+  # ============================================================================
+  # Migration 7: Seed Initial Curriculum Data
+  # ============================================================================
+
+  - revision_id: "002g_seed_curriculum"
+    description: "Seed 8 Python modules with initial data"
+    depends_on: "002f_llm_cache"
+    phase: 4
+    operations:
+      upgrade:
+        - execute_sql: |
+            INSERT INTO modules (title, description, "order") VALUES
+            ('Basics', 'Variables, Data Types, Input/Output, Operators, Type Conversion', 1),
+            ('Control Flow', 'Conditionals (if/elif/else), For Loops, While Loops, Break/Continue', 2),
+            ('Data Structures', 'Lists, Tuples, Dictionaries, Sets', 3),
+            ('Functions', 'Defining Functions, Parameters, Return Values, Scope', 4),
+            ('OOP', 'Classes & Objects, Attributes & Methods, Inheritance, Encapsulation', 5),
+            ('Files', 'Reading/Writing Files, CSV Processing, JSON Handling', 6),
+            ('Errors', 'Try/Except, Exception Types, Custom Exceptions, Debugging', 7),
+            ('Libraries', 'Installing Packages, Working with APIs, Virtual Environments', 8)
+
+      downgrade:
+        - execute_sql: |
+            DELETE FROM modules WHERE "order" BETWEEN 1 AND 8
+
+# ============================================================================
+# Migration Execution Notes
+# ============================================================================
+
+execution_notes:
+  - "All migrations depend on F01's final migration (001z - placeholder, actual revision to be determined)"
+  - "Migrations are grouped into 4 phases for logical separation"
+  - "Use 'alembic upgrade head' to apply all migrations"
+  - "Use 'alembic downgrade <revision>' to rollback to specific version"
+  - "Test both upgrade and downgrade paths on staging before production"
+  - "For production, consider using 'CREATE INDEX CONCURRENTLY' for large tables"
+  - "Seed data (002g) should be reviewed and potentially customized per deployment"
+
+# ============================================================================
+# Production Deployment Checklist
+# ============================================================================
+
+deployment_checklist:
+  - "✓ Backup production database before migration"
+  - "✓ Test migrations on staging environment with production-like data"
+  - "✓ Verify all foreign key constraints are valid"
+  - "✓ Check index creation time on large tables"
+  - "✓ Monitor database performance during and after migration"
+  - "✓ Verify application can connect and query new schema"
+  - "✓ Run smoke tests on critical user flows"
+  - "✓ Have rollback plan ready (downgrade scripts tested)"

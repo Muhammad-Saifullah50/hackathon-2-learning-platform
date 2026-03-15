@@ -305,6 +305,9 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 ## Active Technologies
 - Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic (001-auth)
 - Neon PostgreSQL (users, sessions, password_reset_tokens, email_verification_tokens, rate_limit_counters tables) (001-auth)
+- Python 3.11+ + SQLAlchemy 2.0+, Alembic 1.13+, asyncpg (PostgreSQL async driver), Pydantic 2.0+ (validation) (002-database-schema)
+- Neon PostgreSQL 12+ (serverless PostgreSQL with connection pooling) (002-database-schema)
 
 ## Recent Changes
 - 001-auth: Added Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic
+- 002-database-schema: Completed database schema implementation with 7 Alembic migrations, 12 SQLAlchemy models (User, UserProfile, UserStreak, Module, Lesson, Exercise, Quiz, UserExerciseProgress, UserQuizAttempt, UserModuleMastery, CodeSubmission, LLMCache), 5 repository classes with async operations, Pydantic validation schemas, and seeded 8 Python curriculum modules. Database layer ready for API endpoint implementation.

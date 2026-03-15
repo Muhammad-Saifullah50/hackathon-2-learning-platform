@@ -1,0 +1,735 @@
+# SQLAlchemy Model Contracts
+# Feature: 002-database-schema
+# Date: 2026-03-15
+
+# This file defines the SQLAlchemy model specifications for all database entities.
+# Each model includes fields, relationships, indexes, and validation rules.
+
+models:
+  # ============================================================================
+  # User Management Models (extends F01)
+  # ============================================================================
+
+  User:
+    table_name: users
+    description: "Platform user with authentication credentials and role-based access (extends F01)"
+    extends: F01.User
+    new_fields:
+      role:
+        type: String(20)
+        nullable: false
+        default: "student"
+        index: true
+        description: "User role: student, teacher, or admin"
+      preferences:
+        type: JSONB
+        nullable: false
+        default: {}
+        server_default: "{}"
+        description: "User preferences stored as JSON"
+      deleted_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        index: true
+        description: "Soft delete timestamp (NULL = active)"
+    indexes:
+      - name: idx_users_role
+        columns: [role]
+      - name: idx_users_deleted_at
+        columns: [deleted_at]
+      - name: idx_users_preferences_gin
+        columns: [preferences]
+        type: gin
+    constraints:
+      - type: check
+        name: chk_users_role
+        condition: "role IN ('student', 'teacher', 'admin')"
+    relationships:
+      profile:
+        model: UserProfile
+        type: one_to_one
+        back_populates: user
+        cascade: all, delete-orphan
+      streak:
+        model: UserStreak
+        type: one_to_one
+        back_populates: user
+        cascade: all, delete-orphan
+      mastery_scores:
+        model: UserModuleMastery
+        type: one_to_many
+        back_populates: user
+        cascade: all, delete-orphan
+      exercise_progress:
+        model: UserExerciseProgress
+        type: one_to_many
+        back_populates: user
+        cascade: all, delete-orphan
+      quiz_attempts:
+        model: UserQuizAttempt
+        type: one_to_many
+        back_populates: user
+        cascade: all, delete-orphan
+      code_submissions:
+        model: CodeSubmission
+        type: one_to_many
+        back_populates: user
+        cascade: all, delete-orphan
+
+  UserProfile:
+    table_name: user_profiles
+    description: "Optional 1:1 extension of User for role-specific metadata"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        unique: true
+        description: "Reference to user"
+      bio:
+        type: Text
+        nullable: true
+        description: "User biography (primarily for teachers)"
+      metadata:
+        type: JSONB
+        nullable: false
+        default: {}
+        server_default: "{}"
+        description: "Role-specific data (grade_level, institution, etc.)"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+    indexes:
+      - name: idx_user_profiles_user_id
+        columns: [user_id]
+        unique: true
+      - name: idx_user_profiles_metadata_gin
+        columns: [metadata]
+        type: gin
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: profile
+
+  # ============================================================================
+  # Curriculum Models
+  # ============================================================================
+
+  Module:
+    table_name: modules
+    description: "Python curriculum module (8 total)"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      title:
+        type: String(100)
+        nullable: false
+        description: "Module title (e.g., 'Basics', 'Control Flow')"
+      description:
+        type: Text
+        nullable: false
+        description: "Module description"
+      order:
+        type: Integer
+        nullable: false
+        unique: true
+        description: "Display order (1-8)"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      deleted_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        index: true
+        description: "Soft delete timestamp"
+    indexes:
+      - name: idx_modules_order
+        columns: [order]
+        unique: true
+      - name: idx_modules_deleted_at
+        columns: [deleted_at]
+    constraints:
+      - type: check
+        name: chk_modules_order
+        condition: "\"order\" BETWEEN 1 AND 8"
+    relationships:
+      lessons:
+        model: Lesson
+        type: one_to_many
+        back_populates: module
+        cascade: none
+      mastery_scores:
+        model: UserModuleMastery
+        type: one_to_many
+        back_populates: module
+        cascade: none
+
+  Lesson:
+    table_name: lessons
+    description: "Learning unit within a module"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      module_id:
+        type: Integer
+        foreign_key: modules.id
+        nullable: false
+        index: true
+        description: "Reference to parent module"
+      title:
+        type: String(200)
+        nullable: false
+        description: "Lesson title"
+      order:
+        type: Integer
+        nullable: false
+        description: "Display order within module"
+      content_ref:
+        type: String(500)
+        nullable: false
+        description: "Path to content file or S3 key"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      deleted_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        index: true
+        description: "Soft delete timestamp"
+    indexes:
+      - name: idx_lessons_module_id
+        columns: [module_id]
+      - name: idx_lessons_module_order
+        columns: [module_id, order]
+        unique: true
+        where: "deleted_at IS NULL"
+      - name: idx_lessons_deleted_at
+        columns: [deleted_at]
+    relationships:
+      module:
+        model: Module
+        type: many_to_one
+        back_populates: lessons
+      exercises:
+        model: Exercise
+        type: one_to_many
+        back_populates: lesson
+        cascade: none
+      quizzes:
+        model: Quiz
+        type: one_to_many
+        back_populates: lesson
+        cascade: none
+
+  Exercise:
+    table_name: exercises
+    description: "Coding challenge within a lesson"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      lesson_id:
+        type: Integer
+        foreign_key: lessons.id
+        nullable: false
+        index: true
+        description: "Reference to parent lesson"
+      title:
+        type: String(200)
+        nullable: false
+        description: "Exercise title"
+      order:
+        type: Integer
+        nullable: false
+        description: "Display order within lesson"
+      starter_code:
+        type: Text
+        nullable: true
+        description: "Initial code template for students"
+      content_ref:
+        type: String(500)
+        nullable: false
+        description: "Path to exercise description file"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      deleted_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        index: true
+        description: "Soft delete timestamp"
+    indexes:
+      - name: idx_exercises_lesson_id
+        columns: [lesson_id]
+      - name: idx_exercises_lesson_order
+        columns: [lesson_id, order]
+        unique: true
+        where: "deleted_at IS NULL"
+      - name: idx_exercises_deleted_at
+        columns: [deleted_at]
+    relationships:
+      lesson:
+        model: Lesson
+        type: many_to_one
+        back_populates: exercises
+      progress_records:
+        model: UserExerciseProgress
+        type: one_to_many
+        back_populates: exercise
+        cascade: none
+      submissions:
+        model: CodeSubmission
+        type: one_to_many
+        back_populates: exercise
+        cascade: none
+
+  Quiz:
+    table_name: quizzes
+    description: "Assessment for a lesson or module"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      lesson_id:
+        type: Integer
+        foreign_key: lessons.id
+        nullable: true
+        index: true
+        description: "Reference to lesson (NULL = module-level quiz)"
+      title:
+        type: String(200)
+        nullable: false
+        description: "Quiz title"
+      questions:
+        type: JSONB
+        nullable: false
+        description: "Quiz questions and expected answers"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      deleted_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        index: true
+        description: "Soft delete timestamp"
+    indexes:
+      - name: idx_quizzes_lesson_id
+        columns: [lesson_id]
+      - name: idx_quizzes_deleted_at
+        columns: [deleted_at]
+    relationships:
+      lesson:
+        model: Lesson
+        type: many_to_one
+        back_populates: quizzes
+      attempts:
+        model: UserQuizAttempt
+        type: one_to_many
+        back_populates: quiz
+        cascade: none
+
+  # ============================================================================
+  # Progress Tracking Models
+  # ============================================================================
+
+  UserExerciseProgress:
+    table_name: user_exercise_progress
+    description: "Tracks student progress on exercises"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        index: true
+        description: "Reference to student"
+      exercise_id:
+        type: Integer
+        foreign_key: exercises.id
+        nullable: false
+        index: true
+        description: "Reference to exercise"
+      status:
+        type: String(20)
+        nullable: false
+        default: "not_started"
+        description: "Progress status: not_started, in_progress, completed"
+      score:
+        type: Float
+        nullable: true
+        description: "Score (0-100) if completed"
+      attempts:
+        type: Integer
+        nullable: false
+        default: 0
+        description: "Number of attempts"
+      completed_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        description: "Completion timestamp"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+    indexes:
+      - name: idx_user_exercise_progress_user_exercise
+        columns: [user_id, exercise_id]
+        unique: true
+      - name: idx_user_exercise_progress_user_id
+        columns: [user_id]
+      - name: idx_user_exercise_progress_status
+        columns: [status]
+    constraints:
+      - type: check
+        name: chk_user_exercise_progress_status
+        condition: "status IN ('not_started', 'in_progress', 'completed')"
+      - type: check
+        name: chk_user_exercise_progress_score
+        condition: "score IS NULL OR (score >= 0 AND score <= 100)"
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: exercise_progress
+      exercise:
+        model: Exercise
+        type: many_to_one
+        back_populates: progress_records
+
+  UserQuizAttempt:
+    table_name: user_quiz_attempts
+    description: "Tracks student quiz submissions"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        index: true
+        description: "Reference to student"
+      quiz_id:
+        type: Integer
+        foreign_key: quizzes.id
+        nullable: false
+        index: true
+        description: "Reference to quiz"
+      score:
+        type: Float
+        nullable: false
+        description: "Score (0-100)"
+      answers:
+        type: JSONB
+        nullable: false
+        description: "Student's answers"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+    indexes:
+      - name: idx_user_quiz_attempts_user_id
+        columns: [user_id]
+      - name: idx_user_quiz_attempts_quiz_id
+        columns: [quiz_id]
+      - name: idx_user_quiz_attempts_user_created
+        columns: [user_id, created_at]
+        order: [asc, desc]
+    constraints:
+      - type: check
+        name: chk_user_quiz_attempts_score
+        condition: "score >= 0 AND score <= 100"
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: quiz_attempts
+      quiz:
+        model: Quiz
+        type: many_to_one
+        back_populates: attempts
+
+  UserStreak:
+    table_name: user_streaks
+    description: "Tracks student learning consistency for mastery calculation"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        unique: true
+        description: "Reference to student"
+      current_streak:
+        type: Integer
+        nullable: false
+        default: 0
+        description: "Current consecutive days"
+      longest_streak:
+        type: Integer
+        nullable: false
+        default: 0
+        description: "Longest streak ever achieved"
+      last_activity_date:
+        type: Date
+        nullable: false
+        description: "Last activity date (for streak calculation)"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+    indexes:
+      - name: idx_user_streaks_user_id
+        columns: [user_id]
+        unique: true
+      - name: idx_user_streaks_last_activity
+        columns: [last_activity_date]
+    constraints:
+      - type: check
+        name: chk_user_streaks_current_streak
+        condition: "current_streak >= 0"
+      - type: check
+        name: chk_user_streaks_longest_streak
+        condition: "longest_streak >= current_streak"
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: streak
+
+  UserModuleMastery:
+    table_name: user_module_mastery
+    description: "Stores computed mastery scores for user-module combinations"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        index: true
+        description: "Reference to student"
+      module_id:
+        type: Integer
+        foreign_key: modules.id
+        nullable: false
+        index: true
+        description: "Reference to module"
+      score:
+        type: Float
+        nullable: false
+        default: 0
+        description: "Mastery score (0-100)"
+      version:
+        type: Integer
+        nullable: false
+        default: 1
+        description: "Optimistic locking version"
+      updated_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+    indexes:
+      - name: idx_user_module_mastery_user_module
+        columns: [user_id, module_id]
+        unique: true
+      - name: idx_user_module_mastery_user_id
+        columns: [user_id]
+      - name: idx_user_module_mastery_updated_at
+        columns: [updated_at]
+    constraints:
+      - type: check
+        name: chk_user_module_mastery_score
+        condition: "score >= 0 AND score <= 100"
+    mapper_args:
+      version_id_col: version
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: mastery_scores
+      module:
+        model: Module
+        type: many_to_one
+        back_populates: mastery_scores
+
+  # ============================================================================
+  # Code Submission Models
+  # ============================================================================
+
+  CodeSubmission:
+    table_name: code_submissions
+    description: "Stores all student code attempts with execution results"
+    fields:
+      id:
+        type: Integer
+        primary_key: true
+        autoincrement: true
+      user_id:
+        type: Integer
+        foreign_key: users.id
+        nullable: false
+        index: true
+        description: "Reference to student"
+      exercise_id:
+        type: Integer
+        foreign_key: exercises.id
+        nullable: false
+        index: true
+        description: "Reference to exercise"
+      code_text:
+        type: Text
+        nullable: false
+        description: "Submitted code"
+      result:
+        type: JSONB
+        nullable: false
+        description: "Execution result (stdout, stderr, time)"
+      quality_rating:
+        type: Float
+        nullable: true
+        description: "Code quality score (0-100) from Code Review Agent"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+    indexes:
+      - name: idx_code_submissions_user_exercise_created
+        columns: [user_id, exercise_id, created_at]
+        order: [asc, asc, desc]
+      - name: idx_code_submissions_user_id
+        columns: [user_id]
+      - name: idx_code_submissions_created_at
+        columns: [created_at]
+    constraints:
+      - type: check
+        name: chk_code_submissions_quality_rating
+        condition: "quality_rating IS NULL OR (quality_rating >= 0 AND quality_rating <= 100)"
+    relationships:
+      user:
+        model: User
+        type: many_to_one
+        back_populates: code_submissions
+      exercise:
+        model: Exercise
+        type: many_to_one
+        back_populates: submissions
+
+  # ============================================================================
+  # LLM Cache Models
+  # ============================================================================
+
+  LLMCache:
+    table_name: llm_cache
+    description: "Caches LLM responses to reduce API costs and improve response times"
+    fields:
+      cache_key_hash:
+        type: String(64)
+        primary_key: true
+        description: "SHA-256 hash of normalized prompt + params"
+      prompt_text:
+        type: Text
+        nullable: false
+        description: "Original prompt (for debugging)"
+      response_text:
+        type: Text
+        nullable: false
+        description: "Cached LLM response"
+      model:
+        type: String(100)
+        nullable: false
+        description: "LLM model identifier"
+      token_count:
+        type: Integer
+        nullable: false
+        description: "Total tokens (prompt + response)"
+      created_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+      last_accessed_at:
+        type: DateTime(timezone=True)
+        nullable: false
+        server_default: func.now()
+        onupdate: func.now()
+      expires_at:
+        type: DateTime(timezone=True)
+        nullable: true
+        description: "Expiration timestamp (NULL = indefinite)"
+    indexes:
+      - name: idx_llm_cache_key
+        columns: [cache_key_hash]
+        primary: true
+      - name: idx_llm_cache_last_accessed
+        columns: [last_accessed_at]
+      - name: idx_llm_cache_expires_at
+        columns: [expires_at]
+    constraints:
+      - type: check
+        name: chk_llm_cache_token_count
+        condition: "token_count > 0"
