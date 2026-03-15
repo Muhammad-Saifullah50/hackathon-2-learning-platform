@@ -1,0 +1,178 @@
+# Dapr Subscriptions Configuration for LearnFlow Platform
+# Date: 2026-03-15
+
+# ============================================================================
+# STRUGGLE ALERTS SUBSCRIPTION
+# ============================================================================
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: struggle-alerts-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: struggle-alerts
+  routes:
+    default: /webhooks/struggle-alert
+  deadLetterTopic: struggle-alerts-deadletter
+  scopes:
+  - teacher-service
+  bulkSubscribe:
+    enabled: false
+
+---
+
+# ============================================================================
+# QUIZ COMPLETED SUBSCRIPTION
+# ============================================================================
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: quiz-completed-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: quiz-completed
+  routes:
+    default: /webhooks/quiz-completed
+  deadLetterTopic: quiz-completed-deadletter
+  scopes:
+  - progress-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+# ============================================================================
+# CODE SUBMITTED SUBSCRIPTION (Multiple Subscribers)
+# ============================================================================
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: code-submitted-review-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: code-submitted
+  routes:
+    default: /webhooks/code-submitted
+  deadLetterTopic: code-submitted-deadletter
+  scopes:
+  - code-review-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: code-submitted-progress-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: code-submitted
+  routes:
+    default: /webhooks/code-submitted
+  deadLetterTopic: code-submitted-deadletter
+  scopes:
+  - progress-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+# ============================================================================
+# MASTERY UPDATED SUBSCRIPTION
+# ============================================================================
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: mastery-updated-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: mastery-updated
+  routes:
+    default: /webhooks/mastery-updated
+  deadLetterTopic: mastery-updated-deadletter
+  scopes:
+  - user-service
+  bulkSubscribe:
+    enabled: false
+
+---
+
+# ============================================================================
+# DEAD LETTER QUEUE HANDLER SUBSCRIPTION
+# ============================================================================
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: dlq-handler-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: struggle-alerts-deadletter
+  routes:
+    default: /webhooks/dead-letter
+  scopes:
+  - teacher-service
+  bulkSubscribe:
+    enabled: false
+
+---
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: dlq-quiz-handler-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: quiz-completed-deadletter
+  routes:
+    default: /webhooks/dead-letter
+  scopes:
+  - progress-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: dlq-code-handler-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: code-submitted-deadletter
+  routes:
+    default: /webhooks/dead-letter
+  scopes:
+  - code-review-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: dlq-mastery-handler-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: mastery-updated-deadletter
+  routes:
+    default: /webhooks/dead-letter
+  scopes:
+  - user-service
+  bulkSubscribe:
+    enabled: false

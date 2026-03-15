@@ -1,0 +1,84 @@
+# Dapr Components Configuration for LearnFlow Platform
+# Date: 2026-03-15
+
+# ============================================================================
+# REDIS PUB/SUB COMPONENT
+# ============================================================================
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: learnflow-pubsub
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: "redis-master.default.svc.cluster.local:6379"
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret
+      key: password
+  - name: redisUsername
+    value: "default"
+  - name: redisType
+    value: "node"
+  - name: consumerID
+    value: "{podName}"
+  - name: enableTLS
+    value: "false"
+  - name: processingTimeout
+    value: "60s"
+  - name: redeliverInterval
+    value: "30s"
+  - name: queueDepth
+    value: "100"
+  - name: concurrency
+    value: "10"
+
+---
+
+# ============================================================================
+# REDIS STATE STORE COMPONENT
+# ============================================================================
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: learnflow-statestore
+  namespace: default
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: "redis-master.default.svc.cluster.local:6379"
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret
+      key: password
+  - name: redisUsername
+    value: "default"
+  - name: enableTLS
+    value: "false"
+  - name: actorStateStore
+    value: "true"
+  - name: ttlInSeconds
+    value: "3600"
+
+---
+
+# ============================================================================
+# KUBERNETES SECRET STORE COMPONENT
+# ============================================================================
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: kubernetes
+  namespace: default
+spec:
+  type: secretstores.kubernetes
+  version: v1
+  metadata: []

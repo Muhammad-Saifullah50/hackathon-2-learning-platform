@@ -1,0 +1,57 @@
+# Redis Helm Chart Values for LearnFlow
+# Used by Kong (rate limiting) and Dapr (pub/sub, state store)
+
+architecture: standalone
+
+auth:
+  enabled: true
+  password: "${REDIS_PASSWORD:-changeme}"  # Override with environment variable in production
+
+master:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""  # Use default storage class
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 5
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 5
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable if Prometheus Operator is installed
+
+# Network policy (optional)
+networkPolicy:
+  enabled: false
+
+# Pod security context
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+
+containerSecurityContext:
+  enabled: true
+  runAsUser: 1001
+  runAsNonRoot: true

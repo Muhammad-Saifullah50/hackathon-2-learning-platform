@@ -1,0 +1,29 @@
+# Kong Request Transformer Plugin Configuration for LearnFlow
+# Extracts JWT claims and forwards them as headers to backend services
+
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: request-transformer
+  namespace: kong
+plugin: request-transformer
+config:
+  # Add headers from JWT claims
+  add:
+    headers:
+      - "X-User-Id:$(jwt.claims.sub)"
+      - "X-User-Email:$(jwt.claims.email)"
+      - "X-User-Role:$(jwt.claims.role)"
+      - "X-Session-Id:$(jwt.claims.session_id)"
+
+  # Remove sensitive headers (optional)
+  remove:
+    headers: []
+
+  # Replace headers (optional)
+  replace:
+    headers: []
+
+  # Append headers (optional)
+  append:
+    headers: []

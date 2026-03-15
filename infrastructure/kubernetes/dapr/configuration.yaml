@@ -1,0 +1,156 @@
+# Dapr Configuration for LearnFlow Platform
+# Date: 2026-03-15
+
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: learnflow-config
+  namespace: default
+spec:
+  # ==========================================================================
+  # TRACING CONFIGURATION
+  # ==========================================================================
+  tracing:
+    samplingRate: "1"
+    stdout: true
+    zipkin:
+      endpointAddress: "http://zipkin.default.svc.cluster.local:9411/api/v2/spans"
+
+  # ==========================================================================
+  # METRICS CONFIGURATION
+  # ==========================================================================
+  metric:
+    enabled: true
+    http:
+      increasedCardinality: true
+      pathMatching:
+        - /api/*
+      excludeVerbs: false
+
+  # ==========================================================================
+  # LOGGING CONFIGURATION
+  # ==========================================================================
+  logging:
+    apiLogging:
+      enabled: true
+      obfuscateURLs: false
+      omitHealthChecks: true
+
+  # ==========================================================================
+  # MIDDLEWARE CONFIGURATION
+  # ==========================================================================
+  httpPipeline:
+    handlers:
+    - name: oauth2
+      type: middleware.http.oauth2
+    - name: uppercase
+      type: middleware.http.uppercase
+
+  # ==========================================================================
+  # ACCESS CONTROL CONFIGURATION
+  # ==========================================================================
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies:
+    # Only triage-agent can call other agents
+    - appId: triage-agent
+      defaultAction: allow
+      trustDomain: "public"
+      namespace: "default"
+      operations:
+      - name: /explain
+        httpVerb: ['POST']
+        action: allow
+      - name: /analyze-error
+        httpVerb: ['POST']
+        action: allow
+      - name: /review
+        httpVerb: ['POST']
+        action: allow
+
+    # LLM service can only be called by agents
+    - appId: llm-service
+      defaultAction: deny
+      trustDomain: "public"
+      namespace: "default"
+      operations:
+      - name: /generate
+        httpVerb: ['POST']
+        action: allow
+
+  # ==========================================================================
+  # SECRETS CONFIGURATION
+  # ==========================================================================
+  secrets:
+    scopes:
+    - storeName: kubernetes
+      defaultAccess: allow
+      allowedSecrets: ["redis-secret", "kong-jwt-public-key"]
+
+  # ==========================================================================
+  # COMPONENTS CONFIGURATION
+  # ==========================================================================
+  components:
+    deny:
+    - "secretstores.local.file"
+    - "secretstores.local.env"
+
+  # ==========================================================================
+  # FEATURES
+  # ==========================================================================
+  features:
+  - name: ServiceInvocation
+    enabled: true
+  - name: PubSub
+    enabled: true
+  - name: StateStore
+    enabled: true
+  - name: Secrets
+    enabled: true
+  - name: Bindings
+    enabled: false
+  - name: Actors
+    enabled: false
+  - name: Observability
+    enabled: true
+
+  # ==========================================================================
+  # API CONFIGURATION
+  # ==========================================================================
+  api:
+    allowed:
+    - name: state
+      version: v1
+      protocol: http
+    - name: pubsub
+      version: v1
+      protocol: http
+    - name: invoke
+      version: v1
+      protocol: http
+    - name: metadata
+      version: v1
+      protocol: http
+    - name: health
+      version: v1
+      protocol: http
+
+  # ==========================================================================
+  # NAMERESOLUTION CONFIGURATION
+  # ==========================================================================
+  nameResolution:
+    component: "kubernetes"
+    version: "v1"
+    configuration:
+      clusterDomain: "cluster.local"
+
+  # ==========================================================================
+  # MTLS CONFIGURATION (Disabled for local dev)
+  # ==========================================================================
+  mtls:
+    enabled: false
+    workloadCertTTL: "24h"
+    allowedClockSkew: "15m"
+    controlPlaneTrustDomain: "cluster.local"
+    sentryAddress: "dapr-sentry.dapr-system.svc.cluster.local:80"

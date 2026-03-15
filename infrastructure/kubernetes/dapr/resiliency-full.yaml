@@ -1,0 +1,148 @@
+# Dapr Resiliency Configuration for LearnFlow Platform
+# Date: 2026-03-15
+
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: learnflow-resiliency
+  namespace: default
+spec:
+  policies:
+    # ========================================================================
+    # TIMEOUT POLICIES
+    # ========================================================================
+    timeouts:
+      general: 5s
+      fast: 2s
+      slow: 30s
+      llm: 60s
+
+    # ========================================================================
+    # RETRY POLICIES
+    # ========================================================================
+    retries:
+      general:
+        policy: constant
+        duration: 100ms
+        maxRetries: 3
+
+      exponential:
+        policy: exponential
+        maxInterval: 5s
+        maxRetries: 5
+
+      llm-retry:
+        policy: exponential
+        maxInterval: 10s
+        maxRetries: 3
+
+    # ========================================================================
+    # CIRCUIT BREAKER POLICIES
+    # ========================================================================
+    circuitBreakers:
+      general:
+        maxRequests: 100
+        interval: 30s
+        timeout: 10s
+        trip: consecutiveFailures >= 5
+
+      strict:
+        maxRequests: 50
+        interval: 60s
+        timeout: 30s
+        trip: consecutiveFailures >= 3
+
+      llm-breaker:
+        maxRequests: 20
+        interval: 60s
+        timeout: 30s
+        trip: consecutiveFailures >= 3
+
+  # ==========================================================================
+  # TARGET CONFIGURATIONS
+  # ==========================================================================
+  targets:
+    # ------------------------------------------------------------------------
+    # SERVICE INVOCATION TARGETS
+    # ------------------------------------------------------------------------
+    apps:
+      auth-service:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      user-service:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      sandbox-service:
+        timeout: slow
+        retry: exponential
+        circuitBreaker: strict
+
+      llm-service:
+        timeout: llm
+        retry: llm-retry
+        circuitBreaker: llm-breaker
+
+      triage-agent:
+        timeout: fast
+        retry: general
+        circuitBreaker: general
+
+      concepts-agent:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      code-review-agent:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      debug-agent:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      exercise-agent:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+      progress-agent:
+        timeout: fast
+        retry: general
+        circuitBreaker: general
+
+      teacher-service:
+        timeout: general
+        retry: general
+        circuitBreaker: general
+
+    # ------------------------------------------------------------------------
+    # COMPONENT TARGETS
+    # ------------------------------------------------------------------------
+    components:
+      learnflow-pubsub:
+        outbound:
+          timeout: general
+          retry: exponential
+          circuitBreaker: general
+
+      learnflow-statestore:
+        outbound:
+          timeout: fast
+          retry: general
+          circuitBreaker: general
+
+    # ------------------------------------------------------------------------
+    # ACTOR TARGETS
+    # ------------------------------------------------------------------------
+    actors:
+      # Future: Actor-based agents if needed
+      # agent-actor:
+      #   timeout: general
+      #   retry: general
+      #   circuitBreaker: general

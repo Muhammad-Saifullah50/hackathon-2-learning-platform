@@ -63,5 +63,37 @@ logs/
 # Keys and secrets
 *.pem
 *.key
-keys/private_key.pem
-keys/public_key.pem
+*.pub
+keys/
+backend/keys/
+backend/auth-service/keys/
+backend/*/keys/
+**/keys/private_key.pem
+**/keys/public_key.pem
+**/keys/jwt_key
+**/keys/jwt_key.pub
+
+# Kubernetes secrets and sensitive configs
+infrastructure/**/*.backup
+infrastructure/**/*-secret.yaml
+infrastructure/**/*secret*.yaml
+*-secret.yaml
+*secret*.yaml
+
+# Environment files with secrets
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+
+# Database credentials
+NEON_DATABASE.md
+**/database-credentials.txt
+**/db-credentials.txt
+
+# API keys and tokens
+**/api-keys.txt
+**/tokens.txt
+**/*-token.txt
+**/*-api-key.txt

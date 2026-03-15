@@ -1,0 +1,54 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: learnflow-config
+  namespace: default
+spec:
+  # Tracing configuration
+  tracing:
+    samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://zipkin.default.svc.cluster.local:9411/api/v2/spans"
+
+  # Metrics configuration
+  metric:
+    enabled: true
+
+  # Access control
+  accessControl:
+    defaultAction: deny
+    trustDomain: "public"
+    policies:
+    - appId: triage-agent
+      defaultAction: allow
+      trustDomain: "public"
+      operations:
+      - name: /explain
+        httpVerb: ['POST']
+        action: allow
+      - name: /analyze-error
+        httpVerb: ['POST']
+        action: allow
+      - name: /review
+        httpVerb: ['POST']
+        action: allow
+
+  # API logging
+  apiLogging:
+    enabled: true
+    obfuscateURLs: false
+
+  # mTLS (disabled for local dev)
+  mtls:
+    enabled: false
+    workloadCertTTL: "24h"
+    allowedClockSkew: "15m"
+
+  # Features
+  features:
+  - name: ServiceInvocation
+    enabled: true
+  - name: PubSub
+    enabled: true
+  - name: StateStore
+    enabled: true

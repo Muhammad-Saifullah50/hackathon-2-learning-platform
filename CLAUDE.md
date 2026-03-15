@@ -307,6 +307,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon PostgreSQL (users, sessions, password_reset_tokens, email_verification_tokens, rate_limit_counters tables) (001-auth)
 - Python 3.11+ + SQLAlchemy 2.0+, Alembic 1.13+, asyncpg (PostgreSQL async driver), Pydantic 2.0+ (validation) (002-database-schema)
 - Neon PostgreSQL 12+ (serverless PostgreSQL with connection pooling) (002-database-schema)
+- YAML/Helm 3.x (configuration), Bash (deployment scripts) + Kong API Gateway 3.4, Dapr 1.13+, Kubernetes 1.28+ (Minikube), Helm 3.12+, Redis 7.x (Bitnami), PostgreSQL 15+ (Bitnami - Kong database), deck CLI 1.28+ (Kong configuration sync) (003-api-gateway-service-mesh)
+- PostgreSQL (Kong configuration), Redis (Kong rate limiting, Dapr pub/sub and state store) (003-api-gateway-service-mesh)
 
 ## Recent Changes
 - 001-auth: Added Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic

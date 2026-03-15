@@ -1,0 +1,159 @@
+# Kong Helm Chart Values for LearnFlow
+# API Gateway with JWT authentication, rate limiting, and CORS
+
+replicaCount: 2
+
+image:
+  repository: kong
+  tag: "3.4"
+  pullPolicy: IfNotPresent
+
+# Database configuration (PostgreSQL)
+env:
+  database: postgres
+  pg_host: kong-postgresql.kong.svc.cluster.local
+  pg_port: 5432
+  pg_user: kong
+  pg_password: ${KONG_PG_PASSWORD:-kong}  # Override with environment variable in production
+  pg_database: kong
+
+  # Admin API
+  admin_listen: "0.0.0.0:8001"
+  admin_gui_listen: "0.0.0.0:8002"
+
+  # Proxy
+  proxy_listen: "0.0.0.0:8000"
+
+  # Logging
+  log_level: info
+
+  # Performance
+  nginx_worker_processes: "2"
+  upstream_keepalive_max_requests: "100"
+  upstream_keepalive_pool_size: "60"
+
+# Ingress Controller
+ingressController:
+  enabled: true
+  installCRDs: true
+
+  env:
+    publish_service: kong/kong-kong-proxy
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Proxy service (LoadBalancer for external access)
+proxy:
+  enabled: true
+  type: LoadBalancer
+
+  http:
+    enabled: true
+    servicePort: 80
+    containerPort: 8000
+
+  tls:
+    enabled: false  # HTTP only for MVP
+
+  annotations: {}
+
+# Admin API service (ClusterIP for internal access)
+admin:
+  enabled: true
+  type: ClusterIP
+
+  http:
+    enabled: true
+    servicePort: 8001
+    containerPort: 8001
+
+  tls:
+    enabled: false
+
+# Manager GUI (optional)
+manager:
+  enabled: false
+
+# Portal (optional)
+portal:
+  enabled: false
+
+# Resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /status
+    port: 8001
+    scheme: HTTP
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /status
+    port: 8001
+    scheme: HTTP
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Security context
+securityContext:
+  runAsUser: 1000
+  runAsNonRoot: true
+  readOnlyRootFilesystem: false
+
+# Service account
+serviceAccount:
+  create: true
+  automountServiceAccountToken: true
+
+# Migrations (run before deployment)
+migrations:
+  enabled: true
+  preUpgrade: true
+  postUpgrade: true
+
+# Enterprise features (disabled for open-source)
+enterprise:
+  enabled: false
+
+# Portal API (disabled)
+portalapi:
+  enabled: false
+
+# Cluster telemetry (disabled)
+clustertelemetry:
+  enabled: false

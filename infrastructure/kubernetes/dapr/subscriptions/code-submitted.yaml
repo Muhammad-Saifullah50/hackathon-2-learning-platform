@@ -1,0 +1,35 @@
+# Code Submitted Subscription for Code Review Agent
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: code-submitted-review-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: code-submitted
+  routes:
+    default: /webhooks/code-submitted
+  deadLetterTopic: code-submitted-deadletter
+  scopes:
+  - code-review-agent
+  bulkSubscribe:
+    enabled: false
+
+---
+
+# Code Submitted Subscription for Progress Agent
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: code-submitted-progress-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: code-submitted
+  routes:
+    default: /webhooks/code-submitted
+  deadLetterTopic: code-submitted-deadletter
+  scopes:
+  - progress-agent
+  bulkSubscribe:
+    enabled: false

@@ -1,0 +1,39 @@
+# Kong JWT Plugin Configuration for LearnFlow
+# Validates JWT tokens at the gateway level
+
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-auth
+  namespace: kong
+plugin: jwt
+config:
+  # JWT issuer claim identifies the consumer
+  key_claim_name: "iss"
+
+  # RSA keys are PEM-formatted (not base64)
+  secret_is_base64: false
+
+  # Skip validation on CORS preflight requests
+  run_on_preflight: false
+
+  # Claims to verify
+  claims_to_verify:
+    - exp
+
+  # Extract token from Authorization header
+  header_names:
+    - Authorization
+
+  # URI parameter names (optional)
+  uri_param_names:
+    - jwt
+
+  # Cookie names (optional)
+  cookie_names: []
+
+  # Maximum allowed clock skew
+  maximum_expiration: 31536000
+
+  # Anonymous consumer (optional - set to allow unauthenticated requests)
+  # anonymous: ""

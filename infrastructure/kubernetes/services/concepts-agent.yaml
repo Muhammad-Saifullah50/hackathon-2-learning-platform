@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: concepts-agent
+  namespace: default
+  labels:
+    app: concepts-agent
+spec:
+  selector:
+    app: concepts-agent
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: concepts-agent
+  namespace: default
+  labels:
+    app: concepts-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: concepts-agent
+  template:
+    metadata:
+      labels:
+        app: concepts-agent
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "concepts-agent"
+        dapr.io/app-port: "8000"
+        dapr.io/app-protocol: "http"
+        dapr.io/config: "learnflow-config"
+        dapr.io/log-level: "info"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
+    spec:
+      containers:
+      - name: concepts-agent
+        image: learnflow/concepts-agent:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: PORT
+          value: "8000"
+        - name: ENVIRONMENT
+          value: "development"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

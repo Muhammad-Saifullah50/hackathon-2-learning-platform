@@ -1,0 +1,15 @@
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: mastery-updated-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: mastery-updated
+  routes:
+    default: /webhooks/mastery-updated
+  deadLetterTopic: mastery-updated-deadletter
+  scopes:
+  - user-service
+  bulkSubscribe:
+    enabled: false

@@ -1,0 +1,15 @@
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: quiz-completed-subscription
+  namespace: default
+spec:
+  pubsubname: learnflow-pubsub
+  topic: quiz-completed
+  routes:
+    default: /webhooks/quiz-completed
+  deadLetterTopic: quiz-completed-deadletter
+  scopes:
+  - progress-agent
+  bulkSubscribe:
+    enabled: false
