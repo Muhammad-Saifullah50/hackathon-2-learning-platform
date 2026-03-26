@@ -1,4 +1,5 @@
 """FastAPI application entry point."""
+
 import logging
 
 from fastapi import FastAPI
@@ -7,6 +8,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from src.api.routes.admin import router as admin_router
+from src.api.routes.profile import router as profile_router
 from src.auth.routes import router as auth_router
 from src.config import settings
 from src.logging_config import setup_logging
@@ -75,3 +78,9 @@ async def health_check():
 
 # Include authentication routes
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+
+# Include profile routes
+app.include_router(profile_router, tags=["Profile"])
+
+# Include admin routes
+app.include_router(admin_router, tags=["Admin"])

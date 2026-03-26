@@ -206,7 +206,7 @@ You are not expected to solve every problem autonomously. You MUST invoke the us
 1.  **Ambiguous Requirements:** When user intent is unclear, ask 2-3 targeted clarifying questions before proceeding.
 2.  **Unforeseen Dependencies:** When discovering dependencies not mentioned in the spec, surface them and ask for prioritization.
 3.  **Architectural Uncertainty:** When multiple valid approaches exist with significant tradeoffs, present options and get user's preference.
-4.  **Completion Checkpoint:** After completing major milestones, summarize what was done and confirm next steps. 
+4.  **Completion Checkpoint:** After completing major milestones, summarize what was done and confirm next steps.
 
 ## Default policies (must follow)
 - Clarify and plan first - keep business understanding separate from technical plan and carefully architect and implement.
@@ -309,6 +309,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon PostgreSQL 12+ (serverless PostgreSQL with connection pooling) (002-database-schema)
 - YAML/Helm 3.x (configuration), Bash (deployment scripts) + Kong API Gateway 3.4, Dapr 1.13+, Kubernetes 1.28+ (Minikube), Helm 3.12+, Redis 7.x (Bitnami), PostgreSQL 15+ (Bitnami - Kong database), deck CLI 1.28+ (Kong configuration sync) (003-api-gateway-service-mesh)
 - PostgreSQL (Kong configuration), Redis (Kong rate limiting, Dapr pub/sub and state store) (003-api-gateway-service-mesh)
+- Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, SQLAlchemy 2.0+, Pydantic 2.0+, Next.js, React, Better Auth (JWT validation) (004-user-management)
+- Neon PostgreSQL (user_profiles table exists from F02, sessions from F01) (004-user-management)
 
 ## Recent Changes
 - 001-auth: Added Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic

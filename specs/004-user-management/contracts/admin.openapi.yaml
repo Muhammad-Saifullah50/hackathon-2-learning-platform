@@ -1,0 +1,255 @@
+openapi: 3.1.0
+info:
+  title: Admin User Management API
+  description: API endpoints for admin user management (list users, filter by role)
+  version: 1.0.0
+  contact:
+    name: LearnFlow API Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.learnflow.dev
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/admin/users:
+    get:
+      summary: List all users (admin only)
+      description: |
+        Retrieve a paginated list of all users in the system. Supports filtering by role.
+        Requires admin role. Returns 50 users per page.
+      operationId: listUsers
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: role
+          in: query
+          description: Filter by user role
+          required: false
+          schema:
+            type: string
+            enum: [student, teacher, admin]
+          example: student
+      responses:
+        '200':
+          description: User list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              examples:
+                allUsers:
+                  summary: All users (no filter)
+                  value:
+                    users:
+                      - id: "550e8400-e29b-41d4-a716-446655440000"
+                        email: "student1@example.com"
+                        display_name: "John Doe"
+                        role: "student"
+                        email_verified_at: "2026-03-10T14:30:00Z"
+                        created_at: "2026-03-01T10:00:00Z"
+                      - id: "550e8400-e29b-41d4-a716-446655440001"
+                        email: "teacher1@example.com"
+                        display_name: "Jane Smith"
+                        role: "teacher"
+                        email_verified_at: "2026-03-05T09:00:00Z"
+                        created_at: "2026-02-15T08:00:00Z"
+                    total: 125
+                    page: 1
+                    page_size: 50
+                    total_pages: 3
+                studentsOnly:
+                  summary: Students only (role filter)
+                  value:
+                    users:
+                      - id: "550e8400-e29b-41d4-a716-446655440000"
+                        email: "student1@example.com"
+                        display_name: "John Doe"
+                        role: "student"
+                        email_verified_at: "2026-03-10T14:30:00Z"
+                        created_at: "2026-03-01T10:00:00Z"
+                      - id: "550e8400-e29b-41d4-a716-446655440002"
+                        email: "student2@example.com"
+                        display_name: "Alice Johnson"
+                        role: "student"
+                        email_verified_at: null
+                        created_at: "2026-03-12T15:00:00Z"
+                    total: 100
+                    page: 1
+                    page_size: 50
+                    total_pages: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from /auth/login endpoint (admin role required)
+
+  schemas:
+    UserListResponse:
+      type: object
+      required:
+        - users
+        - total
+        - page
+        - page_size
+        - total_pages
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+          description: List of users for current page
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of users matching filter
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 50
+          description: Number of users per page (fixed at 50)
+        total_pages:
+          type: integer
+          minimum: 0
+          description: Total number of pages
+
+    UserSummary:
+      type: object
+      required:
+        - id
+        - email
+        - display_name
+        - role
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User email address
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User display name
+        role:
+          type: string
+          enum: [student, teacher, admin]
+          description: User role
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Email verification timestamp (null if not verified)
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Location of the error (field path)
+              msg:
+                type: string
+                description: Error message
+              type:
+                type: string
+                description: Error type
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Invalid authentication credentials"
+
+    Forbidden:
+      description: Forbidden - Admin role required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Access forbidden. Required roles: admin"
+
+    ValidationError:
+      description: Validation Error - Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            detail:
+              - loc: ["query", "page"]
+                msg: "Input should be greater than or equal to 1"
+                type: "greater_than_equal"
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Internal server error"
+
+tags:
+  - name: Admin
+    description: Admin-only user management operations

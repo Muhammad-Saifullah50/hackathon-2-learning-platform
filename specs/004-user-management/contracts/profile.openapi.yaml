@@ -1,0 +1,410 @@
+openapi: 3.1.0
+info:
+  title: User Profile API
+  description: API endpoints for user profile management (view, update profile and preferences)
+  version: 1.0.0
+  contact:
+    name: LearnFlow API Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.learnflow.dev
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/profile:
+    get:
+      summary: Get current user's profile
+      description: |
+        Retrieve the authenticated user's profile information including display name, bio,
+        email, role, and preferences. Requires valid JWT access token.
+      operationId: getCurrentUserProfile
+      tags:
+        - Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "student@example.com"
+                display_name: "John Doe"
+                role: "student"
+                bio: "Passionate Python learner"
+                preferences:
+                  learning_pace: "normal"
+                  difficulty_level: "beginner"
+                  theme: "dark"
+                email_verified_at: "2026-03-10T14:30:00Z"
+                created_at: "2026-03-01T10:00:00Z"
+                updated_at: "2026-03-15T09:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update current user's profile
+      description: |
+        Update the authenticated user's display name and bio. Display name defaults to
+        email if empty. Bio is optional and limited to 500 characters.
+      operationId: updateUserProfile
+      tags:
+        - Profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+            examples:
+              updateBoth:
+                summary: Update display name and bio
+                value:
+                  display_name: "Jane Smith"
+                  bio: "Learning Python to build AI applications"
+              updateDisplayNameOnly:
+                summary: Update display name only
+                value:
+                  display_name: "Jane Smith"
+              updateBioOnly:
+                summary: Update bio only
+                value:
+                  bio: "Updated bio text"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/preferences:
+    patch:
+      summary: Update user learning preferences
+      description: |
+        Update the authenticated user's learning preferences (pace and difficulty level).
+        These preferences affect how AI tutors interact with the student.
+      operationId: updateUserPreferences
+      tags:
+        - Profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferencesUpdateRequest'
+            examples:
+              updateBoth:
+                summary: Update pace and difficulty
+                value:
+                  learning_pace: "fast"
+                  difficulty_level: "advanced"
+              updatePaceOnly:
+                summary: Update pace only
+                value:
+                  learning_pace: "slow"
+              updateDifficultyOnly:
+                summary: Update difficulty only
+                value:
+                  difficulty_level: "intermediate"
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/account:
+    delete:
+      summary: Delete user account permanently
+      description: |
+        Permanently delete the authenticated user's account and all associated data.
+        This action is irreversible and complies with GDPR "right to be forgotten".
+        Requires password confirmation for security.
+
+        Deletes:
+        - User account
+        - User profile
+        - Learning progress (streaks, exercise progress, quiz attempts, module mastery)
+        - Code submissions
+        - All active sessions
+      operationId: deleteUserAccount
+      tags:
+        - Profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeleteRequest'
+            example:
+              password: "MySecurePassword123!"
+      responses:
+        '204':
+          description: Account deleted successfully (no content)
+        '401':
+          description: Unauthorized - Invalid password or token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidPassword:
+                  summary: Incorrect password
+                  value:
+                    detail: "Incorrect password"
+                invalidToken:
+                  summary: Invalid or expired token
+                  value:
+                    detail: "Invalid authentication credentials"
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from /auth/login endpoint
+
+  schemas:
+    ProfileResponse:
+      type: object
+      required:
+        - id
+        - email
+        - display_name
+        - role
+        - preferences
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User email address
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User display name (defaults to email if empty)
+        role:
+          type: string
+          enum: [student, teacher, admin]
+          description: User role
+        bio:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: User biography (optional)
+        preferences:
+          type: object
+          properties:
+            learning_pace:
+              type: string
+              enum: [slow, normal, fast]
+              default: normal
+            difficulty_level:
+              type: string
+              enum: [beginner, intermediate, advanced]
+              default: beginner
+            theme:
+              type: string
+              enum: [dark]
+              default: dark
+          description: User learning preferences
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Email verification timestamp
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User display name (defaults to email if empty)
+        bio:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: User biography (optional, max 500 characters)
+      example:
+        display_name: "Jane Smith"
+        bio: "Learning Python to build AI applications"
+
+    PreferencesUpdateRequest:
+      type: object
+      properties:
+        learning_pace:
+          type: string
+          enum: [slow, normal, fast]
+          description: Learning pace preference
+        difficulty_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          description: Difficulty level preference
+      example:
+        learning_pace: "normal"
+        difficulty_level: "beginner"
+
+    PreferencesResponse:
+      type: object
+      required:
+        - learning_pace
+        - difficulty_level
+        - theme
+      properties:
+        learning_pace:
+          type: string
+          enum: [slow, normal, fast]
+        difficulty_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        theme:
+          type: string
+          enum: [dark]
+      example:
+        learning_pace: "normal"
+        difficulty_level: "beginner"
+        theme: "dark"
+
+    AccountDeleteRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 8
+          description: User password for confirmation
+      example:
+        password: "MySecurePassword123!"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+      example:
+        detail: "Invalid authentication credentials"
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Location of the error (field path)
+              msg:
+                type: string
+                description: Error message
+              type:
+                type: string
+                description: Error type
+      example:
+        detail:
+          - loc: ["body", "display_name"]
+            msg: "String should have at most 100 characters"
+            type: "string_too_long"
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Invalid authentication credentials"
+
+    BadRequest:
+      description: Bad Request - Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Invalid request parameters"
+
+    ValidationError:
+      description: Validation Error - Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Internal server error"
+
+tags:
+  - name: Profile
+    description: User profile and preferences management

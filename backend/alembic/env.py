@@ -1,14 +1,27 @@
 """Alembic environment configuration."""
+
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
+from src.auth.models import (
+    EmailVerificationToken,
+    IdentifierType,
+    PasswordResetToken,
+    RateLimitCounter,
+    Session,
+    UserRole,
+)
 from src.config import settings
 from src.database import Base
+from src.models.cache import LLMCache
+from src.models.curriculum import Exercise, Lesson, Module, Quiz
+from src.models.progress import UserExerciseProgress, UserModuleMastery, UserQuizAttempt
+from src.models.submission import CodeSubmission
 
 # Import all models here to ensure they're registered with Base
-from src.auth.models import User, Session, PasswordResetToken, EmailVerificationToken, RateLimitCounter
+from src.models.user import User, UserProfile, UserStreak
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
