@@ -40,3 +40,6 @@ pre-commit==3.6.0
 
 # Docker client
 docker==7.1.0
+
+# LLM provider
+litellm==1.59.8

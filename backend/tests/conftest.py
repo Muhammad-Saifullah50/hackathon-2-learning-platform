@@ -1,4 +1,5 @@
 """Pytest configuration and fixtures for testing."""
+
 import os
 from typing import Generator
 
@@ -8,10 +9,11 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.auth.models import User, UserRole
+from src.auth.models import UserRole
 from src.auth.password import hash_password
 from src.database import Base, get_db
 from src.main import app
+from src.models.user import User
 
 # Test database URL (use in-memory SQLite for tests with StaticPool to share across connections)
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -21,7 +23,7 @@ test_engine = create_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
-    echo=False
+    echo=False,
 )
 
 # Create test session factory

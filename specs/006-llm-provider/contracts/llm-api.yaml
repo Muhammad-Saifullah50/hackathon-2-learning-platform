@@ -1,0 +1,291 @@
+openapi: "3.0.3"
+info:
+  title: LLM Provider API
+  description: >
+    LLM provider abstraction layer for AI agents.
+    Supports streaming responses via SSE, prompt caching, and model swapping via environment variables.
+  version: "1.0.0"
+  contact:
+    name: LearnFlow Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /api/v1/llm/chat:
+    post:
+      summary: Send a chat request and receive a streaming response
+      description: >
+        Sends a prompt to the configured LLM provider and streams the response token-by-token
+        via Server-Sent Events (SSE). Checks the PostgreSQL cache first — if an identical prompt
+        has been seen before, returns the cached response immediately without calling the provider.
+
+        The model, API key, and base URL are configured entirely via environment variables.
+        Kong API Gateway handles rate limiting at the gateway level.
+      operationId: streamChat
+      tags:
+        - llm
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            example:
+              system_prompt: "You are a helpful Python tutor. Explain concepts clearly with code examples."
+              messages:
+                - role: user
+                  content: "What is a list comprehension?"
+              temperature: 0.7
+              max_tokens: 600
+      responses:
+        "200":
+          description: Streaming response via Server-Sent Events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                data: {"token": "A", "index": 0}
+
+                data: {"token": " list", "index": 1}
+
+                data: {"token": " comprehension", "index": 2}
+
+                data: {"done": true, "model": "openrouter/qwen-3.6", "tokens": {"input": 45, "output": 120, "total": 165}}
+        "400":
+          description: Invalid request (e.g., prompt exceeds token limit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "invalid_request"
+                message: "Prompt exceeds maximum input token limit of 1200 tokens"
+                detail: "Estimated 1,450 tokens in input"
+        "401":
+          description: Unauthorized — missing or invalid JWT
+        "429":
+          description: Rate limited — handled by Kong API Gateway
+        "502":
+          description: LLM provider error (invalid API key, provider unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "provider_error"
+                message: "LLM provider returned an error"
+                detail: "Authentication failed. Check API key configuration."
+        "504":
+          description: LLM provider timeout (>30 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "timeout"
+                message: "LLM provider request timed out"
+                detail: "Request exceeded 30 second timeout limit"
+
+  /api/v1/llm/cache/lookup:
+    post:
+      summary: Check if a prompt response is cached
+      description: >
+        Checks whether an identical prompt (same system prompt, messages, temperature, and max_tokens)
+        has been previously answered and cached. Returns the cached response if available, or 404 if not.
+
+        This endpoint allows agents to check cache status before deciding whether to call the streaming endpoint.
+      operationId: lookupCache
+      tags:
+        - llm
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CacheLookupRequest"
+            example:
+              system_prompt: "You are a helpful Python tutor."
+              messages:
+                - role: user
+                  content: "What is a list comprehension?"
+              temperature: 0.7
+              max_tokens: 600
+      responses:
+        "200":
+          description: Cached response found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheLookupResponse"
+              example:
+                cached: true
+                response: "A list comprehension is a concise way to create lists in Python..."
+                model: "openrouter/qwen-3.6"
+                token_count: 165
+                created_at: "2026-04-03T10:00:00Z"
+        "404":
+          description: No cached response found for this prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheMissResponse"
+              example:
+                cached: false
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+          description: The role of the message sender
+        content:
+          type: string
+          description: The message content
+
+    ChatRequest:
+      type: object
+      required:
+        - system_prompt
+        - messages
+      properties:
+        system_prompt:
+          type: string
+          description: System prompt defining agent behavior
+          example: "You are a helpful Python tutor."
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+          description: Conversation messages
+        temperature:
+          type: number
+          format: float
+          default: 0.7
+          minimum: 0.0
+          maximum: 2.0
+          description: Sampling temperature
+        max_tokens:
+          type: integer
+          default: 600
+          minimum: 1
+          maximum: 4096
+          description: Maximum output tokens
+
+    TokenUsage:
+      type: object
+      properties:
+        input:
+          type: integer
+          description: Input/prompt tokens
+        output:
+          type: integer
+          description: Output/completion tokens
+        total:
+          type: integer
+          description: Total tokens used
+
+    StreamEvent:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Single token chunk (present in streaming events)
+        index:
+          type: integer
+          description: Token index in response
+        done:
+          type: boolean
+          description: Whether streaming is complete (present only in final event)
+        model:
+          type: string
+          description: Model used (present only in final event)
+        tokens:
+          $ref: "#/components/schemas/TokenUsage"
+          description: Token usage (present only in final event)
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type identifier
+          example: "provider_error"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "LLM provider returned an error"
+        detail:
+          type: string
+          description: Additional context (never includes sensitive data)
+          example: "Authentication failed. Check API key configuration."
+
+    CacheLookupRequest:
+      type: object
+      required:
+        - system_prompt
+        - messages
+      properties:
+        system_prompt:
+          type: string
+          description: System prompt defining agent behavior
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        temperature:
+          type: number
+          format: float
+          default: 0.7
+        max_tokens:
+          type: integer
+          default: 600
+
+    CacheLookupResponse:
+      type: object
+      properties:
+        cached:
+          type: boolean
+          example: true
+        response:
+          type: string
+          description: The cached LLM response text
+        model:
+          type: string
+          description: Model that generated the response
+        token_count:
+          type: integer
+          description: Total tokens used in the original request
+        created_at:
+          type: string
+          format: date-time
+          description: When the cache entry was created
+
+    CacheMissResponse:
+      type: object
+      properties:
+        cached:
+          type: boolean
+          example: false
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from authentication flow

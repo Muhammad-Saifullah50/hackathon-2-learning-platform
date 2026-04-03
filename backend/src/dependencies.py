@@ -1,16 +1,21 @@
 """FastAPI dependencies for database sessions and repositories."""
+
 from typing import AsyncGenerator
+
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_db
+from src.llm.client import LlmClient
+from src.llm.service import LlmService
 from src.repositories import (
-    UserRepository,
-    UserProfileRepository,
-    UserStreakRepository,
+    CacheRepository,
     CurriculumRepository,
     ProgressRepository,
     SubmissionRepository,
-    CacheRepository,
+    UserProfileRepository,
+    UserRepository,
+    UserStreakRepository,
 )
 
 
@@ -29,57 +34,62 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 # Repository dependencies
-async def get_user_repository(db: AsyncSession = None) -> UserRepository:
+async def get_user_repository(db: AsyncSession = Depends(get_db)) -> UserRepository:
     """Get UserRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return UserRepository(session)
     return UserRepository(db)
 
 
-async def get_user_profile_repository(db: AsyncSession = None) -> UserProfileRepository:
+async def get_user_profile_repository(
+    db: AsyncSession = Depends(get_db),
+) -> UserProfileRepository:
     """Get UserProfileRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return UserProfileRepository(session)
     return UserProfileRepository(db)
 
 
-async def get_user_streak_repository(db: AsyncSession = None) -> UserStreakRepository:
+async def get_user_streak_repository(
+    db: AsyncSession = Depends(get_db),
+) -> UserStreakRepository:
     """Get UserStreakRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return UserStreakRepository(session)
     return UserStreakRepository(db)
 
 
-async def get_curriculum_repository(db: AsyncSession = None) -> CurriculumRepository:
+async def get_curriculum_repository(
+    db: AsyncSession = Depends(get_db),
+) -> CurriculumRepository:
     """Get CurriculumRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return CurriculumRepository(session)
     return CurriculumRepository(db)
 
 
-async def get_progress_repository(db: AsyncSession = None) -> ProgressRepository:
+async def get_progress_repository(
+    db: AsyncSession = Depends(get_db),
+) -> ProgressRepository:
     """Get ProgressRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return ProgressRepository(session)
     return ProgressRepository(db)
 
 
-async def get_submission_repository(db: AsyncSession = None) -> SubmissionRepository:
+async def get_submission_repository(
+    db: AsyncSession = Depends(get_db),
+) -> SubmissionRepository:
     """Get SubmissionRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return SubmissionRepository(session)
     return SubmissionRepository(db)
 
 
-async def get_cache_repository(db: AsyncSession = None) -> CacheRepository:
+async def get_cache_repository(db: AsyncSession = Depends(get_db)) -> CacheRepository:
     """Get CacheRepository instance."""
-    if db is None:
-        async for session in get_async_db():
-            return CacheRepository(session)
     return CacheRepository(db)
+
+
+# LLM service dependency
+async def get_llm_service(db: AsyncSession = Depends(get_db)) -> LlmService:
+    """
+    Get LlmService instance with LiteLLM client and cache repository.
+
+    Args:
+        db: Database session for cache repository
+
+    Returns:
+        Configured LlmService instance
+    """
+    client = LlmClient()
+    cache_repo = CacheRepository(db)
+    return LlmService(client=client, cache_repository=cache_repo)

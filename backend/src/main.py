@@ -4,15 +4,17 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.routes.admin import router as admin_router
-from src.api.routes.profile import router as profile_router
-from src.api.v1.code_execution import router as code_execution_router
-from src.auth.routes import router as auth_router
-from src.config import settings
-from src.logging_config import setup_logging
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+from src.api.routes.admin import router as admin_router
+from src.api.routes.profile import router as profile_router
+from src.api.v1.code_execution import router as code_execution_router
+from src.api.v1.llm import router as llm_router
+from src.auth.routes import router as auth_router
+from src.config import settings
+from src.logging_config import setup_logging
 
 # Setup logging
 setup_logging()
@@ -30,9 +32,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Content-Security-Policy"] = "default-src 'self'"
 
         return response
@@ -89,3 +89,6 @@ app.include_router(admin_router, tags=["Admin"])
 
 # Include code execution routes
 app.include_router(code_execution_router, tags=["Code Execution"])
+
+# Include LLM provider routes
+app.include_router(llm_router, prefix="/api/v1", tags=["LLM"])

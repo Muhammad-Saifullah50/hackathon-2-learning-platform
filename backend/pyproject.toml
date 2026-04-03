@@ -1,3 +1,28 @@
+[project]
+name = "learnflow-backend"
+version = "0.1.0"
+description = "LearnFlow Authentication API"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.25",
+    "alembic>=1.13.1",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.9",
+    "pyjwt[crypto]>=2.8.0",
+    "bcrypt>=4.1.2",
+    "cryptography>=42.0.0",
+    "httpx>=0.26.0",
+    "slowapi>=0.1.9",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.1.0",
+    "docker>=7.1.0",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py311']
@@ -17,5 +42,11 @@ python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
 
-[tool.isort]
-profile = "black"
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "isort>=8.0.1",
+    "litellm>=1.83.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=0.23",
+]
