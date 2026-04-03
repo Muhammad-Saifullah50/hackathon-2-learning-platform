@@ -43,3 +43,6 @@ docker==7.1.0
 
 # LLM provider
 litellm==1.59.8
+
+# Agent orchestration
+openai-agents==0.13.4

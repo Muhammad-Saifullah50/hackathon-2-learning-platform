@@ -312,6 +312,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, SQLAlchemy 2.0+, Pydantic 2.0+, Next.js, React, Better Auth (JWT validation) (004-user-management)
 - Neon PostgreSQL (user_profiles table exists from F02, sessions from F01) (004-user-management)
 - Docker 24.x (containerization) + Python 3.11+ (sandbox execution) + AST parsing (import validation) (005-python-code-sandbox)
+- Python 3.11+ (matches existing backend) + FastAPI, LiteLLM (via existing LlmClient), SQLAlchemy 2.0 (async sessions), Pydantic v2 (007-agent-layer)
+- Neon PostgreSQL via existing async engine — new tables for agent sessions, routing decisions, hint progression, exercises, exercise submissions, mastery records (007-agent-layer)
 
 ## Recent Changes
 - 001-auth: Added Python 3.11+ (backend), TypeScript/Next.js 14+ (frontend) + FastAPI, Better Auth, PyJWT, bcrypt, httpx (HaveIBeenPwned API), SQLAlchemy, Alembic

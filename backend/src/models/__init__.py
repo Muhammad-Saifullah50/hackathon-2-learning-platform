@@ -1,11 +1,9 @@
 """Models package - exports all SQLAlchemy models."""
 
-from src.auth.models import (
-    EmailVerificationToken,
-    PasswordResetToken,
-    RateLimitCounter,
-    Session,
-)
+from src.auth.models import EmailVerificationToken, PasswordResetToken, RateLimitCounter, Session
+from src.models.agent_exercise import Exercise as AgentExercise
+from src.models.agent_exercise import ExerciseSubmission, MasteryRecord
+from src.models.agent_session import AgentSession, HintProgression, RoutingDecision
 from src.models.base import SoftDeleteMixin, TimestampMixin
 from src.models.cache import LLMCache
 from src.models.curriculum import Exercise, Lesson, Module, Quiz
@@ -39,4 +37,12 @@ __all__ = [
     "PasswordResetToken",
     "EmailVerificationToken",
     "RateLimitCounter",
+    # Agent session models
+    "AgentSession",
+    "RoutingDecision",
+    "HintProgression",
+    # Agent exercise models
+    "AgentExercise",
+    "ExerciseSubmission",
+    "MasteryRecord",
 ]

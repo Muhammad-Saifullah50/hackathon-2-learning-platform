@@ -30,16 +30,22 @@ test_engine = create_engine(
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def setup_test_database():
-    """Create tables once for the entire test session."""
+    """Create tables once for the entire test session.
+
+    Note: This fixture is NOT auto-use. Tests that need database access
+    must explicitly request it. This prevents pure unit tests from
+    failing due to PostgreSQL-specific types (JSONB, UUID) that SQLite
+    cannot create.
+    """
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture(scope="function")
-def db() -> Generator[Session, None, None]:
+def db(setup_test_database) -> Generator[Session, None, None]:
     """
     Create a fresh database session for each test.
 

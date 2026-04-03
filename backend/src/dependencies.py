@@ -17,6 +17,10 @@ from src.repositories import (
     UserRepository,
     UserStreakRepository,
 )
+from src.repositories.agent_session_repository import AgentSessionRepository
+from src.repositories.exercise_repository import ExerciseRepository
+from src.repositories.mastery_repository import MasteryRepository
+from src.repositories.routing_repository import RoutingRepository
 
 
 # Database session dependency
@@ -93,3 +97,32 @@ async def get_llm_service(db: AsyncSession = Depends(get_db)) -> LlmService:
     client = LlmClient()
     cache_repo = CacheRepository(db)
     return LlmService(client=client, cache_repository=cache_repo)
+
+
+# Agent repository dependencies
+async def get_agent_session_repository(
+    db: AsyncSession = Depends(get_db),
+) -> AgentSessionRepository:
+    """Get AgentSessionRepository instance."""
+    return AgentSessionRepository(db)
+
+
+async def get_routing_repository(
+    db: AsyncSession = Depends(get_db),
+) -> RoutingRepository:
+    """Get RoutingRepository instance."""
+    return RoutingRepository(db)
+
+
+async def get_exercise_repository(
+    db: AsyncSession = Depends(get_db),
+) -> ExerciseRepository:
+    """Get ExerciseRepository instance."""
+    return ExerciseRepository(db)
+
+
+async def get_mastery_repository(
+    db: AsyncSession = Depends(get_db),
+) -> MasteryRepository:
+    """Get MasteryRepository instance."""
+    return MasteryRepository(db)

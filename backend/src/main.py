@@ -10,6 +10,7 @@ from starlette.responses import Response
 
 from src.api.routes.admin import router as admin_router
 from src.api.routes.profile import router as profile_router
+from src.api.v1.agents import router as agents_router
 from src.api.v1.code_execution import router as code_execution_router
 from src.api.v1.llm import router as llm_router
 from src.auth.routes import router as auth_router
@@ -92,3 +93,6 @@ app.include_router(code_execution_router, tags=["Code Execution"])
 
 # Include LLM provider routes
 app.include_router(llm_router, prefix="/api/v1", tags=["LLM"])
+
+# Include agent routes
+app.include_router(agents_router, prefix="/api/v1/agents", tags=["Agents"])

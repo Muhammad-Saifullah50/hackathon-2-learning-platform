@@ -1,0 +1,527 @@
+openapi: 3.1.0
+info:
+  title: LearnFlow Agent API
+  description: AI tutoring agent endpoints for the LearnFlow platform
+  version: 1.0.0
+  contact:
+    name: LearnFlow Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/v1/agents/chat:
+    post:
+      summary: Send a message to the AI tutoring agent system
+      description: >
+        Unified endpoint for all agent interactions. The Triage Agent classifies
+        the student's intent and routes to the appropriate specialist agent.
+        Response is streamed via Server-Sent Events (SSE).
+      operationId: agentChat
+      tags:
+        - Agents
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentChatRequest'
+      responses:
+        '200':
+          description: Streaming response via SSE
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"token": "A", "index": 0}
+
+                  data: {"token": " list", "index": 1}
+
+                  data: {"done": true, "model": "openrouter/qwen-3.6", "tokens": {"input": 120, "output": 45, "total": 165}}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/ProviderError'
+
+  /api/v1/agents/exercises:
+    post:
+      summary: Generate a coding exercise
+      description: >
+        Generates a new coding exercise for the specified topic and difficulty.
+        The exercise includes a description, starter code, and test cases.
+      operationId: generateExercise
+      tags:
+        - Exercises
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseGenerationRequest'
+      responses:
+        '201':
+          description: Exercise generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/agents/exercises/{exercise_id}/submit:
+    post:
+      summary: Submit an exercise solution for grading
+      description: >
+        Submits student code for auto-grading against the exercise's test cases.
+        Returns per-test results, score, and constructive feedback.
+      operationId: submitExercise
+      tags:
+        - Exercises
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: exercise_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseSubmissionRequest'
+      responses:
+        '200':
+          description: Grading results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseSubmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Exercise not found
+
+  /api/v1/agents/progress:
+    get:
+      summary: Get learning progress summary
+      description: >
+        Returns the student's mastery scores across all topics, weak areas,
+        streak information, and personalized recommendations.
+      operationId: getProgress
+      tags:
+        - Progress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: topic
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by specific topic (optional)
+      responses:
+        '200':
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/agents/sessions/{session_id}:
+    get:
+      summary: Get agent session history
+      description: >
+        Returns the conversation history and routing decisions for a specific agent session.
+      operationId: getSession
+      tags:
+        - Sessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+
+  /api/v1/agents/hints/advance:
+    post:
+      summary: Advance to the next hint level
+      description: >
+        Requests the next level of hint in an active debugging session.
+        Progresses from level 1 (high-level) to level 2 (specific) to level 3 (concrete fix) to solution.
+      operationId: advanceHint
+      tags:
+        - Debug
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HintAdvanceRequest'
+      responses:
+        '200':
+          description: Next hint or solution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No active debug session found
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AgentChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The student's question or message
+        session_id:
+          type: string
+          format: uuid
+          description: Existing session ID (omit to create new session)
+        code_snippet:
+          type: string
+          description: Optional code to include with the message (for debug/review)
+        topic:
+          type: string
+          description: Optional topic context (e.g., "loops", "functions")
+      example:
+        message: "What is a list comprehension?"
+        topic: "loops"
+
+    ExerciseGenerationRequest:
+      type: object
+      required:
+        - topic
+        - difficulty
+      properties:
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Curriculum topic
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+      example:
+        topic: "loops"
+        difficulty: "beginner"
+
+    ExerciseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        difficulty:
+          type: string
+        description:
+          type: string
+        starter_code:
+          type: string
+          nullable: true
+        test_cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCase'
+        created_at:
+          type: string
+          format: date-time
+
+    TestCase:
+      type: object
+      required:
+        - input
+        - expected_output
+      properties:
+        input:
+          type: string
+          description: Input to pass to the student's function
+        expected_output:
+          type: string
+          description: Expected output or return value
+        assert_statement:
+          type: string
+          description: Python assert statement for automated grading
+
+    ExerciseSubmissionRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: The student's solution code
+      example:
+        code: "def add(a, b):\n    return a + b"
+
+    ExerciseSubmissionResponse:
+      type: object
+      properties:
+        submission_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Percentage score
+        total_tests:
+          type: integer
+        passed_tests:
+          type: integer
+        test_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestResult'
+        feedback:
+          type: string
+          description: Constructive feedback
+        execution_time_ms:
+          type: integer
+          nullable: true
+
+    TestResult:
+      type: object
+      properties:
+        test_index:
+          type: integer
+        passed:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+
+    ProgressSummaryResponse:
+      type: object
+      properties:
+        overall_mastery:
+          type: number
+          minimum: 0
+          maximum: 100
+        overall_level:
+          type: string
+          enum: [Beginner, Learning, Proficient, Mastered]
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicMastery'
+        weak_areas:
+          type: array
+          items:
+            type: string
+          description: Topics with mastery below 50%
+        streak:
+          $ref: '#/components/schemas/StreakInfo'
+        recommendations:
+          type: array
+          items:
+            type: string
+          description: Personalized study recommendations
+        missing_components:
+          type: array
+          items:
+            type: string
+          description: Components with no data (e.g., "quizzes")
+
+    TopicMastery:
+      type: object
+      properties:
+        topic:
+          type: string
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        level:
+          type: string
+          enum: [Beginner, Learning, Proficient, Mastered]
+        component_breakdown:
+          type: object
+          properties:
+            exercises:
+              type: number
+            quizzes:
+              type: number
+            code_quality:
+              type: number
+            streak:
+              type: number
+
+    StreakInfo:
+      type: object
+      properties:
+        current_streak:
+          type: integer
+          description: Consecutive days with activity
+        longest_streak:
+          type: integer
+        last_active_date:
+          type: string
+          format: date
+
+    AgentSessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, completed, abandoned]
+        active_agent:
+          type: string
+          nullable: true
+        conversation_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationMessage'
+        routing_decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingDecisionRecord'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ConversationMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    RoutingDecisionRecord:
+      type: object
+      properties:
+        intent:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        target_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    HintAdvanceRequest:
+      type: object
+      required:
+        - session_id
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: Active tutoring session ID
+        request_solution:
+          type: boolean
+          default: false
+          description: If true, request the full solution instead of next hint
+
+    HintResponse:
+      type: object
+      properties:
+        hint_level:
+          type: integer
+          minimum: 1
+          maximum: 3
+        hint_text:
+          type: string
+          description: The hint content
+        is_solution:
+          type: boolean
+          description: True if this is the full solution (level 3 + request)
+        hints_remaining:
+          type: integer
+          description: Number of hint levels remaining
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid JWT
+    RateLimited:
+      description: Rate limit exceeded - 10 requests per minute
+    ProviderError:
+      description: LLM provider error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
