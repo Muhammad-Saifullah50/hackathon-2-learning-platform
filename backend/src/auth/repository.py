@@ -1,4 +1,5 @@
 """Repository layer for database operations."""
+
 import hashlib
 import secrets
 from datetime import datetime, timedelta
@@ -6,14 +7,9 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-
-from src.auth.models import (
-    EmailVerificationToken,
-    PasswordResetToken,
-    RateLimitCounter,
-    Session as SessionModel,
-    User,
-)
+from src.auth.models import EmailVerificationToken, PasswordResetToken, RateLimitCounter
+from src.auth.models import Session as SessionModel
+from src.models.user import User
 
 
 class UserRepository:
@@ -231,7 +227,9 @@ class SessionRepository:
         Args:
             session_id: Session UUID
         """
-        session = self.db.query(SessionModel).filter(SessionModel.id == session_id).first()
+        session = (
+            self.db.query(SessionModel).filter(SessionModel.id == session_id).first()
+        )
         if session:
             session.revoked_at = datetime.utcnow()
             self.db.commit()

@@ -1,0 +1,190 @@
+openapi: 3.0.3
+info:
+  title: LearnFlow Code Execution API
+  description: API for executing Python code in a secure sandbox environment
+  version: 1.0.0
+paths:
+  /api/v1/code-execution:
+    post:
+      summary: Execute Python code in secure sandbox
+      description: Submit Python code for execution in an isolated environment with resource limits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeExecutionRequest'
+      responses:
+        '200':
+          description: Code executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeExecutionResponse'
+        '400':
+          description: Invalid request or code validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '422':
+          description: Code execution failed due to timeout, error, or security violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeExecutionErrorResponse'
+        '500':
+          description: Internal server error during execution environment setup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+      security:
+        - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CodeExecutionRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Python code to execute
+          maxLength: 10000
+          minLength: 1
+          example: "print('Hello, World!')"
+        module_id:
+          type: string
+          format: uuid
+          description: Optional ID of the curriculum module this code relates to
+          nullable: true
+        lesson_id:
+          type: string
+          format: uuid
+          description: Optional ID of the lesson this code relates to
+          nullable: true
+        exercise_id:
+          type: string
+          format: uuid
+          description: Optional ID of the exercise this code is a solution for
+          nullable: true
+
+    CodeExecutionResponse:
+      type: object
+      required:
+        - id
+        - status
+        - execution_time_ms
+        - output
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for this execution attempt
+        status:
+          type: string
+          enum: [success, timeout, error, blocked, infrastructure_failure]
+          description: Execution result status
+        execution_time_ms:
+          type: integer
+          minimum: 0
+          maximum: 8000
+          description: Time taken for execution in milliseconds
+        output:
+          type: string
+          description: Program output captured during execution
+          nullable: true
+        error_message:
+          type: string
+          description: Student-friendly error message if execution failed
+          nullable: true
+        error_type:
+          type: string
+          description: Classification of error (e.g., SyntaxError, NameError)
+          nullable: true
+        memory_used_bytes:
+          type: integer
+          minimum: 0
+          description: Peak memory usage during execution in bytes
+          nullable: true
+        code_submission_id:
+          type: string
+          format: uuid
+          description: ID of stored code submission (only for successful executions)
+          nullable: true
+
+    ValidationError:
+      type: object
+      required:
+        - error
+        - message
+        - details
+      properties:
+        error:
+          type: string
+          enum: [validation_error]
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field that failed validation
+              message:
+                type: string
+                description: Validation error message
+
+    CodeExecutionErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - status
+      properties:
+        error:
+          type: string
+          enum: [execution_error, timeout_error, security_violation]
+          description: Error type
+        message:
+          type: string
+          description: Student-friendly error message
+        status:
+          type: string
+          enum: [timeout, error, blocked, infrastructure_failure]
+          description: Execution status
+        execution_time_ms:
+          type: integer
+          description: Time taken before termination in milliseconds
+        allowed_modules:
+          type: array
+          items:
+            type: string
+          description: List of allowed standard library modules (for security violations)
+          nullable: true
+
+    InternalServerError:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum: [internal_server_error]
+          description: Error type
+        message:
+          type: string
+          description: Error message suggesting retry

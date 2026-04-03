@@ -1,11 +1,10 @@
 """FastAPI routes for authentication endpoints."""
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-
 from src.auth.dependencies import get_current_user, require_role
-from src.auth.models import User
 from src.auth.schemas import (
     EmailVerificationRequest,
     LoginRequest,
@@ -21,6 +20,7 @@ from src.auth.schemas import (
 )
 from src.auth.service import AuthService
 from src.database import get_db
+from src.models.user import User
 
 router = APIRouter()
 
@@ -124,7 +124,6 @@ async def refresh_token(
     return response
 
 
-
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
@@ -150,7 +149,9 @@ async def teacher_only_endpoint(
 
     Returns success message.
     """
-    return MessageResponse(message=f"Welcome, {current_user.display_name}! You have teacher/admin access.")
+    return MessageResponse(
+        message=f"Welcome, {current_user.display_name}! You have teacher/admin access."
+    )
 
 
 @router.get("/admin-only", response_model=MessageResponse)
@@ -164,7 +165,9 @@ async def admin_only_endpoint(
 
     Returns success message.
     """
-    return MessageResponse(message=f"Welcome, {current_user.display_name}! You have admin access.")
+    return MessageResponse(
+        message=f"Welcome, {current_user.display_name}! You have admin access."
+    )
 
 
 @router.post("/email-verification/verify", response_model=MessageResponse)
@@ -200,7 +203,9 @@ async def resend_verification_email(
     service = AuthService(db)
     await service.resend_verification_email(request.email)
 
-    return MessageResponse(message="Verification email sent successfully! Please check your inbox.")
+    return MessageResponse(
+        message="Verification email sent successfully! Please check your inbox."
+    )
 
 
 @router.post("/password-reset/request", response_model=MessageResponse)
@@ -218,7 +223,9 @@ async def request_password_reset(
     service = AuthService(db)
     await service.request_password_reset(request.email)
 
-    return MessageResponse(message="If an account exists with this email, a password reset link has been sent.")
+    return MessageResponse(
+        message="If an account exists with this email, a password reset link has been sent."
+    )
 
 
 @router.post("/password-reset/confirm", response_model=MessageResponse)
@@ -237,7 +244,9 @@ async def confirm_password_reset(
     service = AuthService(db)
     await service.confirm_password_reset(request.token, request.new_password)
 
-    return MessageResponse(message="Password reset successfully! You can now log in with your new password.")
+    return MessageResponse(
+        message="Password reset successfully! You can now log in with your new password."
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
@@ -258,7 +267,7 @@ async def logout(
     service = AuthService(db)
 
     # Extract session_id from user object (set by get_current_user dependency)
-    session_id = getattr(current_user, '_session_id', None)
+    session_id = getattr(current_user, "_session_id", None)
 
     if session_id:
         await service.logout(current_user.id, UUID(session_id))

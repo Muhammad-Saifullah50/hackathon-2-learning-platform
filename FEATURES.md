@@ -238,6 +238,7 @@ Routes student queries to appropriate specialist agents based on intent classifi
 **Tech Stack:**
 - FastAPI
 - LLM Provider (classification)
+- OpenAI Agents SDK
 
 **Routing Rules:**
 - "explain", "what is" → Concepts Agent

@@ -1,4 +1,5 @@
 """FastAPI dependencies for authentication and authorization."""
+
 from typing import Optional
 from uuid import UUID
 
@@ -6,10 +7,9 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
-
 from src.auth.jwt import verify_token
-from src.auth.models import User
 from src.database import get_db
+from src.models.user import User
 
 security = HTTPBearer()
 
@@ -72,7 +72,10 @@ async def get_current_user(
     # Check if session is revoked (T101)
     if session_id:
         from src.auth.models import Session as SessionModel
-        session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
+
+        session = (
+            db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
+        )
         if session and session.revoked_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

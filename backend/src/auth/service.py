@@ -1,4 +1,5 @@
 """Service layer for authentication business logic."""
+
 import logging
 import secrets
 from typing import Optional, Tuple
@@ -6,9 +7,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
 from src.auth.jwt import create_access_token, create_refresh_token
-from src.auth.models import User
 from src.auth.password import check_password_breach, hash_password, verify_password
 from src.auth.rate_limit import RateLimiter
 from src.auth.repository import (
@@ -19,6 +18,7 @@ from src.auth.repository import (
 )
 from src.auth.schemas import LoginResponse, TokenResponse, UserResponse
 from src.config import settings
+from src.models.user import User
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -72,7 +72,9 @@ class AuthService:
         # Check password breach
         is_breached, breach_count = await check_password_breach(password)
         if is_breached:
-            logger.warning(f"Registration failed - breached password for email: {email}, breach_count: {breach_count}")
+            logger.warning(
+                f"Registration failed - breached password for email: {email}, breach_count: {breach_count}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"This password has been compromised in {breach_count} data breaches. Please choose a different password.",
@@ -96,7 +98,9 @@ class AuthService:
             logger.info(f"Email verification token created for user_id: {user.id}")
             # TODO: Send verification email (will be implemented in T033)
 
-        logger.info(f"User registered successfully - user_id: {user.id}, email: {email}, role: {role}")
+        logger.info(
+            f"User registered successfully - user_id: {user.id}, email: {email}, role: {role}"
+        )
         return user, verification_token
 
     async def login(
@@ -126,8 +130,12 @@ class AuthService:
         # Check rate limiting by email
         lockout_until = self.rate_limiter.check_rate_limit(email, "email")
         if lockout_until:
-            remaining_seconds = self.rate_limiter.get_remaining_lockout_seconds(lockout_until)
-            logger.warning(f"Login rate limited by email: {email}, remaining_seconds: {remaining_seconds}")
+            remaining_seconds = self.rate_limiter.get_remaining_lockout_seconds(
+                lockout_until
+            )
+            logger.warning(
+                f"Login rate limited by email: {email}, remaining_seconds: {remaining_seconds}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"Too many failed login attempts. Please try again in {remaining_seconds} seconds.",
@@ -137,8 +145,12 @@ class AuthService:
         if ip_address:
             lockout_until = self.rate_limiter.check_rate_limit(ip_address, "ip")
             if lockout_until:
-                remaining_seconds = self.rate_limiter.get_remaining_lockout_seconds(lockout_until)
-                logger.warning(f"Login rate limited by IP: {ip_address}, email: {email}, remaining_seconds: {remaining_seconds}")
+                remaining_seconds = self.rate_limiter.get_remaining_lockout_seconds(
+                    lockout_until
+                )
+                logger.warning(
+                    f"Login rate limited by IP: {ip_address}, email: {email}, remaining_seconds: {remaining_seconds}"
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=f"Too many failed login attempts from this IP. Please try again in {remaining_seconds} seconds.",
@@ -152,7 +164,9 @@ class AuthService:
             if ip_address:
                 self.rate_limiter.increment_failed_attempt(ip_address, "ip")
 
-            logger.warning(f"Login failed - invalid credentials for email: {email}, ip_address: {ip_address}")
+            logger.warning(
+                f"Login failed - invalid credentials for email: {email}, ip_address: {ip_address}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -160,7 +174,9 @@ class AuthService:
 
         # Check email verification for teachers and admins
         if user.role.value in ["teacher", "admin"] and user.email_verified_at is None:
-            logger.warning(f"Login failed - email not verified for user_id: {user.id}, email: {email}")
+            logger.warning(
+                f"Login failed - email not verified for user_id: {user.id}, email: {email}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email verification required. Please verify your email address before logging in.",
@@ -184,9 +200,13 @@ class AuthService:
         )
 
         # Create access token with session_id
-        access_token = create_access_token(user.id, user.role.value, user.email, session.id)
+        access_token = create_access_token(
+            user.id, user.role.value, user.email, session.id
+        )
 
-        logger.info(f"Login successful - user_id: {user.id}, email: {email}, session_id: {session.id}, ip_address: {ip_address}")
+        logger.info(
+            f"Login successful - user_id: {user.id}, email: {email}, session_id: {session.id}, ip_address: {ip_address}"
+        )
 
         # Build response
         user_response = UserResponse.model_validate(user)
@@ -224,7 +244,9 @@ class AuthService:
         # Get session by refresh token
         session = self.session_repo.get_by_refresh_token_hash(refresh_token)
         if not session:
-            logger.warning(f"Token refresh failed - invalid refresh token from ip_address: {ip_address}")
+            logger.warning(
+                f"Token refresh failed - invalid refresh token from ip_address: {ip_address}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired refresh token",
@@ -233,7 +255,9 @@ class AuthService:
         # Get user
         user = self.user_repo.get_by_id(session.user_id)
         if not user:
-            logger.error(f"Token refresh failed - user not found for session_id: {session.id}")
+            logger.error(
+                f"Token refresh failed - user not found for session_id: {session.id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
@@ -255,9 +279,13 @@ class AuthService:
         )
 
         # Create new access token with session_id
-        access_token = create_access_token(user.id, user.role.value, user.email, new_session.id)
+        access_token = create_access_token(
+            user.id, user.role.value, user.email, new_session.id
+        )
 
-        logger.info(f"Token refresh successful - user_id: {user.id}, old_session_id: {session.id}, new_session_id: {new_session.id}")
+        logger.info(
+            f"Token refresh successful - user_id: {user.id}, old_session_id: {session.id}, new_session_id: {new_session.id}"
+        )
 
         # Build response
         token_response = TokenResponse(
@@ -297,7 +325,9 @@ class AuthService:
 
         # Check if token is already used
         if token_record.used_at:
-            logger.warning(f"Email verification failed - token already used for user_id: {token_record.user_id}")
+            logger.warning(
+                f"Email verification failed - token already used for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Verification token has already been used",
@@ -305,7 +335,9 @@ class AuthService:
 
         # Check if token is expired
         if token_record.expires_at < datetime.utcnow():
-            logger.warning(f"Email verification failed - token expired for user_id: {token_record.user_id}")
+            logger.warning(
+                f"Email verification failed - token expired for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Verification token has expired",
@@ -314,7 +346,9 @@ class AuthService:
         # Get user
         user = self.user_repo.get_by_id(token_record.user_id)
         if not user:
-            logger.error(f"Email verification failed - user not found for user_id: {token_record.user_id}")
+            logger.error(
+                f"Email verification failed - user not found for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
@@ -322,7 +356,9 @@ class AuthService:
 
         # Check if email is already verified
         if user.email_verified_at:
-            logger.warning(f"Email verification failed - already verified for user_id: {user.id}")
+            logger.warning(
+                f"Email verification failed - already verified for user_id: {user.id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is already verified",
@@ -336,7 +372,9 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        logger.info(f"Email verified successfully - user_id: {user.id}, email: {user.email}")
+        logger.info(
+            f"Email verified successfully - user_id: {user.id}, email: {user.email}"
+        )
         return user
 
     async def resend_verification_email(self, email: str) -> str:
@@ -357,7 +395,9 @@ class AuthService:
         # Get user
         user = self.user_repo.get_by_email(email)
         if not user:
-            logger.warning(f"Resend verification failed - user not found for email: {email}")
+            logger.warning(
+                f"Resend verification failed - user not found for email: {email}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
@@ -365,7 +405,9 @@ class AuthService:
 
         # Check if email is already verified
         if user.email_verified_at:
-            logger.warning(f"Resend verification failed - email already verified for user_id: {user.id}")
+            logger.warning(
+                f"Resend verification failed - email already verified for user_id: {user.id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is already verified",
@@ -407,7 +449,9 @@ class AuthService:
         # Create password reset token
         reset_token = self.password_reset_repo.create_token(user.id)
 
-        logger.info(f"Password reset token created - user_id: {user.id}, email: {email}")
+        logger.info(
+            f"Password reset token created - user_id: {user.id}, email: {email}"
+        )
 
         # TODO: Send password reset email (will be implemented in email service)
         # For now, return token for testing purposes
@@ -443,7 +487,9 @@ class AuthService:
 
         # Check if token is already used
         if token_record.used_at:
-            logger.warning(f"Password reset failed - token already used for user_id: {token_record.user_id}")
+            logger.warning(
+                f"Password reset failed - token already used for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password reset token has already been used",
@@ -451,7 +497,9 @@ class AuthService:
 
         # Check if token is expired
         if token_record.expires_at < datetime.utcnow():
-            logger.warning(f"Password reset failed - token expired for user_id: {token_record.user_id}")
+            logger.warning(
+                f"Password reset failed - token expired for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password reset token has expired",
@@ -460,7 +508,9 @@ class AuthService:
         # Get user
         user = self.user_repo.get_by_id(token_record.user_id)
         if not user:
-            logger.error(f"Password reset failed - user not found for user_id: {token_record.user_id}")
+            logger.error(
+                f"Password reset failed - user not found for user_id: {token_record.user_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
@@ -469,7 +519,9 @@ class AuthService:
         # Check password breach
         is_breached, breach_count = await check_password_breach(new_password)
         if is_breached:
-            logger.warning(f"Password reset failed - breached password for user_id: {user.id}, breach_count: {breach_count}")
+            logger.warning(
+                f"Password reset failed - breached password for user_id: {user.id}, breach_count: {breach_count}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"This password has been compromised in {breach_count} data breaches. Please choose a different password.",
@@ -489,7 +541,9 @@ class AuthService:
         # Revoke all user sessions (force re-login with new password)
         self.session_repo.revoke_all_user_sessions(user.id)
 
-        logger.info(f"Password reset successful - user_id: {user.id}, email: {user.email}, all sessions revoked")
+        logger.info(
+            f"Password reset successful - user_id: {user.id}, email: {user.email}, all sessions revoked"
+        )
         return user
 
     async def logout(self, user_id: UUID, session_id: UUID) -> None:
@@ -519,4 +573,3 @@ class AuthService:
         # Revoke all user sessions
         self.session_repo.revoke_all_user_sessions(user_id)
         logger.info(f"All sessions revoked - user_id: {user_id}")
-
